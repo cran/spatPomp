@@ -1,8 +1,8 @@
-175434bc643d2a6a9baf2bbc9fca161c *DESCRIPTION
+0bfa208fcff5eb13f962c0d3f1ae6a6e *DESCRIPTION
 01a8eba97d1f52a2fdda5ece1b75b44e *NAMESPACE
 0a017611d1e15dcd0c9311f08b6d9479 *R/abf.R
 dbfc57f12f668c451535c29a5f1b4842 *R/abfir.R
-4055dee998e3cfabb574e5724848381a *R/as_data_frame.R
+58360c81246ba809657f18372d9dc26c *R/as_data_frame.R
 b33b17bfc3cebb8a5a45ecc964da388f *R/as_spatPomp.R
 30fe3f9dfb9fceaefc4c86ff983ce232 *R/bm.R
 9813ce3c74b2adcb9487b990a58b110b *R/bpfilter.R
@@ -43,8 +43,8 @@ ebe6e129c3950c16658e9a72a8e33ee3 *R/vec_dmeasure.R
 104eca33ed97db1ee0a63490d1648055 *R/vec_rmeasure.R
 e50729d5d65de0ea357800bb57608457 *R/vunit_measure.R
 e5c3a381206eb112e6839248c57c4bb5 *README.md
-73d8cc4489d03fdb2eb76985f9329ff2 *data/city_data_UK.csv
-4e5b3ff5c372a9d7db73f468e11e6550 *data/measlesUK.csv
+320dff32cb2f9346c74bf6f458e63b62 *data/city_data_UK.csv.gz
+d38cc8fc87b195638e6c830aedfae428 *data/measlesUK.csv.xz
 9e86dea1458489f6017def2f9cc2a2c8 *inst/CITATION
 10756772c8bd4408c8fa9dcee6847260 *inst/NEWS
 b5789c8891de105016e352f7218a3959 *inst/NEWS.Rd
@@ -102,5 +102,5 @@ dd35c61e0516a346b88659bb86e12e26 *src/spatPomp_defines.h
 9987674b905ff7288e2e27867598c92b *src/v_to_theta.c
 cb5147d238a306862e71ad56aae0b7d1 *tests/testthat.R
 58b2d8332af3bd8be5f4bdc22660525c *tests/testthat/test_bm_methods.R
-0ee6e62cd1efb282379da55d392d9032 *tests/testthat/test_lorenz_methods.R
+69d7c341a61f4a9b732868ce08b376cf *tests/testthat/test_lorenz_methods.R
 02a26c431f22be3eae25ce6157327074 *tests/testthat/test_spatPomp.R
