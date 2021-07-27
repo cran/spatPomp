@@ -1,8 +1,8 @@
 Package: spatPomp
 Type: Package
 Title: Inference for Spatiotemporal Partially Observed Markov Processes
-Version: 0.23.0.0
-Date: 2021-07-08
+Version: 0.25.0.0
+Date: 2021-07-27
 Authors@R: c(person("Kidus", "Asfaw", email = "kasfaw@umich.edu", role = c("aut", "cre")),
              person("Aaron A.", "King", email = "kingaa@umich.edu", role = c("aut")),
              person("Edward", "Ionides", email = "ionides@umich.edu", role = c("aut")),
@@ -32,9 +32,9 @@ Collate: 'spatPomp_class.R' 'abf.R' 'abfir.R' 'get_covariate_names.R'
         'simulate.R' 'spatPomp_Csnippet.R' 'spatPomp_workhorses.R'
         'unit_names.R' 'vec_dmeasure.R' 'vec_rmeasure.R'
         'vunit_measure.R'
-RoxygenNote: 7.1.0
+RoxygenNote: 7.1.1
 NeedsCompilation: yes
-Packaged: 2021-07-08 21:59:58 UTC; kasfaw
+Packaged: 2021-07-27 16:16:23 UTC; kasfaw
 Author: Kidus Asfaw [aut, cre],
   Aaron A. King [aut],
   Edward Ionides [aut],
@@ -42,4 +42,4 @@ Author: Kidus Asfaw [aut, cre],
   Allister Ho [ctb]
 Maintainer: Kidus Asfaw <kasfaw@umich.edu>
 Repository: CRAN
-Date/Publication: 2021-07-09 08:00:02 UTC
+Date/Publication: 2021-07-27 22:20:02 UTC

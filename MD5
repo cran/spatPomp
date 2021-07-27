@@ -1,4 +1,4 @@
-0bfa208fcff5eb13f962c0d3f1ae6a6e *DESCRIPTION
+5b2d868c95e1e5471c19086521d2970e *DESCRIPTION
 01a8eba97d1f52a2fdda5ece1b75b44e *NAMESPACE
 0a017611d1e15dcd0c9311f08b6d9479 *R/abf.R
 dbfc57f12f668c451535c29a5f1b4842 *R/abfir.R
@@ -25,7 +25,7 @@ c2115463f22bc96bae3b46935b8d4ec0 *R/measlesUK.R
 9a35eb4da867baa09fc9727b769c7e0e *R/munit_measure.R
 7a7655ae67a0d13672dad2f556ba6137 *R/package.R
 eee905fda61d7da32f2ea04e00e1f73a *R/pipe.R
-b766932f0beee38c38c4ba5780790441 *R/plot.R
+c44617d780e5bfa2d61ae49e88900faa *R/plot.R
 40ec4a04ed85556de0da1d8a055def29 *R/print.R
 9782dcbf1459c5382491f816b71a454b *R/pstop.R
 7acd1074e223d5d4d83aa0e018a9ba44 *R/rprocess_spec.R
@@ -72,9 +72,9 @@ fcb1e7b7cb36cc8f881e7c6f29fe8b5c *man/loglik.Rd
 78177a9a565708e1e832ceceb631c07a *man/measlesUK.Rd
 80be5d602012ffe2a0e45478786bfd39 *man/munit_measure.Rd
 4730f8870caee16df8aabe7a4c9bbe89 *man/pStop.Rd
-3ea66d9727093f4d01b95ffcf948eb42 *man/plot.Rd
+09785abab9be7a2e5eda18e0661e6b92 *man/plot.Rd
 c71bf7627adb8aa8ea496016e2cbd371 *man/print.Rd
-8746117df51085ef0b56e360839d7095 *man/reexports.Rd
+58a17f407550f9610c92389f0fd32e64 *man/reexports.Rd
 754a2d49bdac58deba5cedb9a1d098cc *man/runit_measure.Rd
 39280b398651f26d04337bf37575f404 *man/simulate.Rd
 32a9665701cb196af0dc306fb9b5ea1f *man/spatPomp-class.Rd
