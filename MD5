@@ -1,4 +1,4 @@
-5b2d868c95e1e5471c19086521d2970e *DESCRIPTION
+c9b916392652defc341f5249485c97e7 *DESCRIPTION
 01a8eba97d1f52a2fdda5ece1b75b44e *NAMESPACE
 0a017611d1e15dcd0c9311f08b6d9479 *R/abf.R
 dbfc57f12f668c451535c29a5f1b4842 *R/abfir.R
@@ -25,7 +25,7 @@ c2115463f22bc96bae3b46935b8d4ec0 *R/measlesUK.R
 9a35eb4da867baa09fc9727b769c7e0e *R/munit_measure.R
 7a7655ae67a0d13672dad2f556ba6137 *R/package.R
 eee905fda61d7da32f2ea04e00e1f73a *R/pipe.R
-c44617d780e5bfa2d61ae49e88900faa *R/plot.R
+6e336832e5ce246321fc3a32746610f9 *R/plot.R
 40ec4a04ed85556de0da1d8a055def29 *R/print.R
 9782dcbf1459c5382491f816b71a454b *R/pstop.R
 7acd1074e223d5d4d83aa0e018a9ba44 *R/rprocess_spec.R
@@ -33,7 +33,7 @@ c44617d780e5bfa2d61ae49e88900faa *R/plot.R
 8948c74e23b992acb02fffac5cecdeee *R/safecall.R
 14acf009ca276e9f70b08fb22068d38f *R/simulate.R
 9d0e1bce57bff2844c7d298db4338745 *R/skeleton_spec.R
-6b348ed4184d755bfed7991ac4fe22df *R/spatPomp.R
+2d3aeb3e96cf7f4db6a38ea4afd7ad41 *R/spatPomp.R
 321bf4de6b0a0ca295e6ff126ad33943 *R/spatPomp_Csnippet.R
 f4576e984dac18be84afb69ed2175b70 *R/spatPomp_class.R
 ab205c45d659cfb79cc6a919716632f1 *R/spatPomp_workhorses.R
@@ -43,8 +43,8 @@ ebe6e129c3950c16658e9a72a8e33ee3 *R/vec_dmeasure.R
 104eca33ed97db1ee0a63490d1648055 *R/vec_rmeasure.R
 e50729d5d65de0ea357800bb57608457 *R/vunit_measure.R
 e5c3a381206eb112e6839248c57c4bb5 *README.md
-320dff32cb2f9346c74bf6f458e63b62 *data/city_data_UK.csv.gz
-d38cc8fc87b195638e6c830aedfae428 *data/measlesUK.csv.xz
+73d8cc4489d03fdb2eb76985f9329ff2 *data/city_data_UK.csv
+4e5b3ff5c372a9d7db73f468e11e6550 *data/measlesUK.csv
 9e86dea1458489f6017def2f9cc2a2c8 *inst/CITATION
 10756772c8bd4408c8fa9dcee6847260 *inst/NEWS
 b5789c8891de105016e352f7218a3959 *inst/NEWS.Rd
@@ -63,7 +63,7 @@ ebbcb2fecb627b7057adf6e8a3b393ef *man/dunit_measure.Rd
 68ae4e52934147774fd08acb871beb72 *man/girf.Rd
 e95f0a1d16f1a20498dbddbe8f364007 *man/ienkf.Rd
 3fadf976329948c398a49d3e2a79cd63 *man/igirf.Rd
-34b849da5251496b116009f3d01dad25 *man/iubf.Rd
+266af452eab029c5e278a3167325397c *man/iubf.Rd
 fcb1e7b7cb36cc8f881e7c6f29fe8b5c *man/loglik.Rd
 9de2b1b48f833343b94e343e0beb8b40 *man/lorenz.Rd
 78abefe0ceb4fe571a77b61f8da4a09d *man/macros/cite.Rd
@@ -76,10 +76,10 @@ fcb1e7b7cb36cc8f881e7c6f29fe8b5c *man/loglik.Rd
 c71bf7627adb8aa8ea496016e2cbd371 *man/print.Rd
 58a17f407550f9610c92389f0fd32e64 *man/reexports.Rd
 754a2d49bdac58deba5cedb9a1d098cc *man/runit_measure.Rd
-39280b398651f26d04337bf37575f404 *man/simulate.Rd
+e2fded140fcf8eb78372c70fa84a9da2 *man/simulate.Rd
 32a9665701cb196af0dc306fb9b5ea1f *man/spatPomp-class.Rd
 2847b466e148344906ddea190c1ccc1c *man/spatPomp-package.Rd
-5ca6ff420a41439a26911864cc36e03f *man/spatPomp.Rd
+2498de521cb43a59dad7f21d9cb8b5dd *man/spatPomp.Rd
 0709a15ce783094e509d21236efccc23 *man/spatPomp_Csnippet.Rd
 116295d439f74d6c8f2beb96d6690f13 *man/undefined.Rd
 77b2e9be1559e99d94de9261cee31070 *man/unit_names.Rd
