@@ -11,6 +11,7 @@
 ##' @name bpfilter
 ##' @rdname bpfilter
 ##' @include spatPomp_class.R
+##' @author Kidus Asfaw
 ##' @family particle filter methods
 ##' @inheritParams abf
 ##'
@@ -18,21 +19,27 @@
 ##' into blocks with size \code{block_size}.
 ##' @param block_list List that specifies an exact partition of the spatial units. Each partition element, or block, is
 ##' an integer vector of neighboring units.
+##' @param save_states logical. If True, the state-vector for each particle and
+##' block is saved.
+##' @param \dots If a \code{params} argument is specified, \code{bpfilter} will estimate the likelihood at that parameter set instead of at \code{coef(object)}.
 ##'
 ##' @examples
+##' # Complete examples are provided in the package tests
+##' \dontrun{
 ##' # Create a simulation of a Brownian motion
-##' b <- bm(U=6, N=10)
+##' b <- bm(U=4, N=2)
 ##'
 ##' # Run BPF with the specified number of units per block
-##' bpfilterd_b1 <- bpfilter(b, Np = 100, block_size = 2)
+##' bpfilterd_b1 <- bpfilter(b, Np = 10, block_size = 2)
 ##'
 ##' # Run BPF with the specified partition
 ##' bpfilterd_b2 <- bpfilter(b,
-##'                          Np = 20,
-##'                          block_list = list(c(1,2), c(3,4), c(5,6)))
+##'                          Np = 10,
+##'                          block_list = list(c(1,2),c(3,4)) )
 ##'
 ##' # Get a likelihood estimate
 ##' logLik(bpfilterd_b2)
+##' }
 ##'
 ##' @return Upon successful completion, \code{bpfilter()} returns an object of class
 ##' \sQuote{bpfilterd_spatPomp} containing the algorithmic parameters used to run \code{bpfilter()}
@@ -42,8 +49,12 @@
 ##' Only one of \code{block_size} or \code{block_list} should be specified.
 ##' If both or neither is provided, an error is triggered.
 ##'
-##' @references \rebeschini2015
+##' @references
 ##'
+##' \rebeschini2015
+##' 
+##' \asfaw2020
+##' 
 ##' @section Methods:
 ##' The following methods are available for such an object:
 ##' \describe{
@@ -59,18 +70,22 @@ setClass(
     Np="integer",
     paramMatrix="array",
     cond.loglik="numeric",
-    loglik="numeric"
+    block.cond.loglik="array",
+    loglik="numeric",
+    saved.states="list"
   ),
   prototype=prototype(
     block_list = list(),
     Np=as.integer(NA),
     paramMatrix=array(data=numeric(0),dim=c(0,0)),
     cond.loglik=as.double(NA),
-    loglik=as.double(NA)
+    block.cond.loglik=array(data=numeric(0),dim=c(0,0)),
+    loglik=as.double(NA),
+    saved.states=list()
   )
 )
 
-setGeneric("bpfilter",  function (object, ...)standardGeneric("bpfilter"))
+setGeneric("bpfilter",  function (object, ...) standardGeneric("bpfilter"))
 
 ##' @name bpfilter-spatPomp
 ##' @aliases bpfilter,spatPomp-method
@@ -79,8 +94,10 @@ setGeneric("bpfilter",  function (object, ...)standardGeneric("bpfilter"))
 setMethod(
   "bpfilter",
   signature=signature(object="spatPomp"),
-  function (object, Np, block_size, block_list, ..., verbose=getOption("verbose", FALSE)) {
+  function (object, Np, block_size, block_list, save_states, ..., verbose=getOption("verbose", FALSE)) {
     ep = paste0("in ",sQuote("bpfilter"),": ")
+
+    if(missing(save_states)) save_states <- FALSE
 
     if(missing(block_list) && missing(block_size))
       stop(ep,sQuote("block_list"), " or ", sQuote("block_size"), " must be specified to the call",call.=FALSE)
@@ -107,15 +124,17 @@ setMethod(
      object=object,
      Np=Np,
      block_list=block_list,
+     save_states=save_states,
      ...,
      verbose=verbose)
   }
 )
 
-bpfilter.internal <- function (object, Np, block_list,...,verbose, .gnsi = TRUE) {
+bpfilter.internal <- function (object, Np, block_list, save_states, ..., verbose, .gnsi = TRUE) {
   ep <- paste0("in ",sQuote("bpfilter"),": ")
   verbose <- as.logical(verbose)
   p_object <- pomp(object,...)
+  save_states <- as.logical(save_states)
   object <- new("spatPomp",p_object,
                 unit_covarnames = object@unit_covarnames,
                 shared_covarnames = object@shared_covarnames,
@@ -167,6 +186,13 @@ bpfilter.internal <- function (object, Np, block_list,...,verbose, .gnsi = TRUE)
   # create array to store weights per particle per block_list
   weights <- array(data = numeric(0), dim=c(nblocks,Np[1L]))
   loglik <- rep(NA,ntimes)
+  block.loglik <- matrix(NA,nblocks,ntimes)
+  if (save_states) {
+    saved.states <- setNames(vector(mode="list",length=ntimes), time(object))
+  } else {
+    saved.states <- list()
+  }
+
 
   for (nt in seq_len(ntimes)) { ## main loop
     ## advance the state variables according to the process model
@@ -235,8 +261,11 @@ bpfilter.internal <- function (object, Np, block_list,...,verbose, .gnsi = TRUE)
       x[statenames,] <- xx$states
       params <- xx$params
     }
+    if (save_states) saved.states[[nt]] <- x
     log_weights = max_log_d + log(weights)
-    loglik[nt] = sum(apply(log_weights,1,logmeanexp))
+    block_log_weights <- apply(log_weights,1,logmeanexp)
+    loglik[nt] = sum(block_log_weights)
+    block.loglik[,nt] <- block_log_weights
   } ## end of main loop
   new(
     "bpfilterd_spatPomp",
@@ -244,6 +273,8 @@ bpfilter.internal <- function (object, Np, block_list,...,verbose, .gnsi = TRUE)
     block_list=block_list,
     Np=as.integer(Np),
     cond.loglik=loglik,
-    loglik=sum(loglik)
+    block.cond.loglik=block.loglik,
+    loglik=sum(loglik),
+    saved.states=saved.states
   )
 }

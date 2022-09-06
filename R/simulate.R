@@ -6,6 +6,7 @@
 ##' @name simulate
 ##' @rdname simulate
 ##' @include spatPomp_class.R spatPomp.R
+##' @author Kidus Asfaw
 ##'
 ##' @inheritParams pomp::simulate
 ##'
@@ -16,10 +17,14 @@
 ##' and \code{'data.frame'}.
 ##' @importFrom utils data
 ##' @examples
+##' # Complete examples are provided in the package tests
+##' \dontrun{
 ##' # Get a spatPomp object
-##' b <- bm(U=5, N=10)
-##' # Get 10 simulations from same model as data.frame
-##' sims <- simulate(b, nsim=10, format='data.frame')
+##' b <- bm(U=2, N=5)
+##' # Get 2 simulations from same model as data.frame
+##' sims <- simulate(b, nsim=2, format='data.frame')
+##' }
+##' @references \asfaw2020
 NULL
 
 setGeneric(
@@ -45,32 +50,31 @@ setMethod(
     if(format == 'spatPomps') sims <- pomp::simulate(pomp(object), format = 'pomps', nsim = nsim, include.data = include.data, seed = seed, ...)
     if(format == 'data.frame') sims <- pomp::simulate(pomp(object), format = format, nsim = nsim, include.data = include.data, seed = seed, ...)
     if(format=="data.frame"){
-      unit_stateobs <- c(object@unit_obsnames, object@unit_statenames)
-      unit_stateobs_pat <- paste0(paste("^",unit_stateobs,sep=""), collapse = "|")
       get_unit_index_from_statename <- function(statename){
-        stringr::str_split(statename,unit_stateobs_pat)[[1]][2]
+        stringr::str_extract(statename, "[[:digit:]]+$")
       }
-      get_unit_index_from_statename_v <- Vectorize(get_unit_index_from_statename)
-                                        # convert to long format and output
+      get_state_obs_type_from_statename <- function(statename) {
+        gsub("[[:digit:]]+$", "", statename)
+      }
+      # convert to long format and output
       to_gather <- colnames(sims)[3:length(colnames(sims))][!c(colnames(sims)[3:length(colnames(sims))]%in%object@shared_covarnames)] # all columns except time and .id
-      to_select <- c(colnames(sims)[1:2], "unit", "stateobs", "val")
-      to_arrange <- c(colnames(sims)[1], "unit", "stateobs")
-      gathered <- sims %>%
-        tidyr::gather_(key="stateobs", val="val", to_gather) %>%
-        dplyr::mutate(ui = get_unit_index_from_statename_v(.data$stateobs))%>%
-        dplyr::mutate(unit = unit_names(object)[as.integer(.data$ui)]) %>%
-        dplyr::select(to_select) %>%
-        dplyr::arrange_(.dots = to_arrange)
-      stateobstype <- sapply(gathered$stateobs,FUN=function(x) stringr::str_extract(x,unit_stateobs_pat))
-      gathered$stateobstype <- stateobstype
-      gathered <- gathered %>%
-        dplyr::select(-.data$stateobs) %>%
-        tidyr::spread(key = stateobstype, value = .data$val) %>%
-        dplyr::rename(unitname = .data$unit)
+      to_select <- c(colnames(sims)[1:2], "unitname", "stateobs", "val")
+      to_arrange <- c(colnames(sims)[1], "unitname", "stateobs")
+      sims %>%
+        tidyr::pivot_longer(cols = to_gather, names_to = "stateobs",
+	  values_to = "val") -> tmp
+      tmp$ui <- get_unit_index_from_statename(tmp$stateobs)
+      tmp$unitname <- unit_names(object)[as.integer(tmp$ui)]
+      dplyr::select(tmp,dplyr::all_of(to_select)) %>%
+        dplyr::arrange(dplyr::across(to_arrange)) -> tmp
+      tmp$stateobstype <- get_state_obs_type_from_statename(tmp$stateobs)
+      dplyr::select(tmp, -"stateobs") %>%
+        tidyr::pivot_wider(names_from = "stateobstype",
+	  values_from = 'val') -> gathered
       return(gathered)
     }
     if(format=="spatPomps"){
-                                        # add back spatPomp components into a list of spatPomps
+      # add back spatPomp components into a list of spatPomps
       if(nsim > 1){
         sp.list <- vector(mode="list", length = nsim)
         for(i in 1:length(sims)){

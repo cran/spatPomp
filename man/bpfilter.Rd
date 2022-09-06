@@ -12,6 +12,7 @@
   Np,
   block_size,
   block_list,
+  save_states,
   ...,
   verbose = getOption("verbose", FALSE)
 )
@@ -27,7 +28,10 @@ into blocks with size \code{block_size}.}
 \item{block_list}{List that specifies an exact partition of the spatial units. Each partition element, or block, is
 an integer vector of neighboring units.}
 
-\item{...}{If a \code{params} argument is specified, \code{abf} will estimate the likelihood at that parameter set instead of at \code{coef(object)}.}
+\item{save_states}{logical. If True, the state-vector for each particle and
+block is saved.}
+
+\item{\dots}{If a \code{params} argument is specified, \code{bpfilter} will estimate the likelihood at that parameter set instead of at \code{coef(object)}.}
 
 \item{verbose}{logical; if \code{TRUE}, messages updating the user on progress will be printed to the console.}
 }
@@ -60,23 +64,28 @@ The following methods are available for such an object:
 }
 
 \examples{
+# Complete examples are provided in the package tests
+\dontrun{
 # Create a simulation of a Brownian motion
-b <- bm(U=6, N=10)
+b <- bm(U=4, N=2)
 
 # Run BPF with the specified number of units per block
-bpfilterd_b1 <- bpfilter(b, Np = 100, block_size = 2)
+bpfilterd_b1 <- bpfilter(b, Np = 10, block_size = 2)
 
 # Run BPF with the specified partition
 bpfilterd_b2 <- bpfilter(b,
-                         Np = 20,
-                         block_list = list(c(1,2), c(3,4), c(5,6)))
+                         Np = 10,
+                         block_list = list(c(1,2),c(3,4)) )
 
 # Get a likelihood estimate
 logLik(bpfilterd_b2)
+}
 
 }
 \references{
 \rebeschini2015
+
+\asfaw2020
 }
 \seealso{
 Other particle filter methods: 
@@ -84,8 +93,12 @@ Other particle filter methods:
 \code{\link{abf}()},
 \code{\link{enkf}()},
 \code{\link{girf}()},
+\code{\link{ibpf}()},
 \code{\link{ienkf}()},
 \code{\link{igirf}()},
 \code{\link{iubf}()}
+}
+\author{
+Kidus Asfaw
 }
 \concept{particle filter methods}

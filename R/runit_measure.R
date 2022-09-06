@@ -4,6 +4,7 @@
 #' @name runit_measure
 #' @rdname runit_measure
 #' @include spatPomp_class.R spatPomp.R
+#' @author Kidus Asfaw
 #' @param object An object of class \code{spatPomp}
 #' @param x A state vector for all units
 #' @param unit The unit for which to simulate an observation
@@ -13,6 +14,8 @@
 #' @return A matrix with the simulated observation corresponding to state
 #' \code{x} and unit \code{unit} with parameter set \code{params}.
 #' @examples
+#' # Complete examples are provided in the package tests
+#' \dontrun{
 #' b <- bm(U=3)
 #' s <- states(b)[,1,drop=FALSE]
 #' rownames(s) -> rn
@@ -22,6 +25,7 @@
 #' dim(p) <- c(length(p),1); dimnames(p) <- list(param=rnp)
 #' o <- obs(b)[,1,drop=FALSE]
 #' runit_measure(b, x=s, unit=2, time=1, params=p)
+#' }
 NULL
 
 setGeneric("runit_measure", function(object,...)standardGeneric("runit_measure"))
