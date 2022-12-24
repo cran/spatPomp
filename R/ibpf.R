@@ -29,7 +29,7 @@
 ##' @param unitParNames estimated parameters that are different for
 ##' each unit.
 ##'
-##' @param spat_regression Fraction of each extended parameter regressed toward the unit mean.
+##' @param spat_regression Fraction of each extended parameter regressed toward the unit mean. Not required when all parameters are unit-specific.
 ##'
 ##' @return
 ##' Upon successful completion, \code{ibpf} returns an object of class
@@ -105,29 +105,38 @@ setMethod(
       cooling.fraction.50,
       block_size, block_list,spat_regression,
       ..., verbose = getOption("verbose", FALSE)) {
-    ep <- paste0("in ",sQuote("ibpf"),": ")
-    if(missing(block_list) && missing(block_size))
-      stop(ep,sQuote("block_list"), " or ", sQuote("block_size"), " must be specified to the call",call.=FALSE)
-
-    if (!missing(block_list) & !missing(block_size)){
-      stop(ep,"Exactly one of ",sQuote("block_size"), " and ", sQuote("block_list"), " should be provided, but not both.",call.=FALSE)
+  ep <- paste0("in ",sQuote("ibpf"),": ")
+  if(missing(block_list) && missing(block_size)) {
+    stop(ep,sQuote("block_list"), " or ", sQuote("block_size"),
+      " must be specified to the call",call.=FALSE)
+  }
+  if (!missing(block_list) & !missing(block_size)){
+    stop(ep,"Exactly one of ",sQuote("block_size"), " and ",
+      sQuote("block_list"), " should be provided, but not both.",call.=FALSE)
+  }
+  if (missing(spat_regression) && !is.null(sharedParNames)) 
+    stop(ep, sQuote("spat_regression"),
+     " should be provided when there are shared parameters",call.=FALSE)
+  if (missing(Nbpf)) stop(ep, "Nbpf is required")
+  if (missing(rw.sd)) stop(ep, "rw.sd is required")  
+  if (missing(Np)) stop(ep, "Np is required")
+  if (missing(sharedParNames)) stop(ep, "sharedParNames is required")
+  if (missing(unitParNames)) stop(ep, "unitParNames is required")
+  if (missing(spat_regression)) spat_regression <- numeric()
+  if (missing(block_list)){
+    if(block_size > length(unit_names(data))){
+      stop(ep,sQuote("block_size"),
+        " cannot be greater than the number of spatial units",call.=FALSE)
     }
-
-    if (missing(spat_regression))
-      stop(ep, sQuote("spat_regression"), " should be provided",call.=FALSE)
-
-    if (missing(block_list)){
-      if(block_size > length(unit_names(data))){
-        stop(ep,sQuote("block_size"), " cannot be greater than the number of spatial units",call.=FALSE)
-      }
-      all_units = seq_len(length(unit_names(data)))
-      nblocks = round(length(all_units)/block_size)
-      block_list = split(all_units, sort(all_units %% nblocks))
-    }
-    block_list <- lapply(block_list, as.integer)
+    all_units = seq_len(length(unit_names(data)))
+    nblocks = round(length(all_units)/block_size)
+    block_list = split(all_units, sort(all_units %% nblocks))
+  }
+  block_list <- lapply(block_list, as.integer)
 
 
 ## currently, ibpf always uses parameters taken from the model object
+## or params argument
 #    if (missing(Np)) {
 #      if (is.matrix(params)) {
 #        Np <- ncol(params)
@@ -149,6 +158,132 @@ setMethod(
   }
 )
 
+
+##' @name ibpf-ibpfd_spatPomp
+##' @aliases ibpf,ibpfd_spatPomp-method
+##' @rdname ibpf
+##' @export
+setMethod(
+  "ibpf",
+  signature=signature(data="ibpfd_spatPomp"),
+  definition=function (data,Nbpf,Np,rw.sd,
+      sharedParNames,
+      unitParNames,
+      cooling.type="geometric",
+      cooling.fraction.50,
+      block_size, block_list,spat_regression,
+      ..., verbose = getOption("verbose", FALSE)) {
+  ep <- paste0("in ",sQuote("ibpf"),": ")
+
+    if (!missing(block_list) & !missing(block_size)){
+      stop(ep,"Exactly one of ",sQuote("block_size"), " and ", sQuote("block_list"), " can be provided, but not both.",call.=FALSE)
+    }
+
+    if(missing(block_list) && missing(block_size))
+      block_list <- data@block_list
+
+    if (!missing(block_size)){
+      if(block_size > length(unit_names(data))){
+        stop(ep,sQuote("block_size"), " cannot be greater than the number of spatial units",call.=FALSE)
+      }
+      all_units = seq_len(length(unit_names(data)))
+      nblocks = round(length(all_units)/block_size)
+      block_list = split(all_units, sort(all_units %% nblocks))
+    }
+    block_list <- lapply(block_list, as.integer)
+
+## currently, ibpf always uses parameters taken from the model object
+## or params argument
+#    if (missing(Np)) {
+#      if (is.matrix(params)) {
+#        Np <- ncol(params)
+#      } else {
+#        stop(ep,sQuote("Np")," must be specified",call.=FALSE)
+#      }
+#    }
+
+    if (missing(Np)) Np <- data@Np
+    if (missing(Nbpf)) Nbpf <- data@Nbpf
+    if (missing(rw.sd)) rw.sd <- data@rw.sd
+    if (missing(cooling.type)) cooling.type <- data@cooling.type
+    if (missing(cooling.fraction.50)) cooling.fraction.50 <- data@cooling.fraction.50
+
+    tryCatch(
+      ibpf_internal(data,Nbpf=Nbpf,spat_regression=spat_regression,
+        Np=Np,rw.sd=rw.sd,
+	sharedParNames=sharedParNames,
+	unitParNames=unitParNames,
+	cooling.type=cooling.type,cooling.fraction.50=cooling.fraction.50,
+        block_list=block_list,
+	...,verbose=verbose),
+        error = "error in ibpf_internal"
+    )
+  }
+)
+
+##' @name ibpf-bpfd_spatPomp
+##' @aliases ibpf,bpfilterd_spatPomp-method
+##' @rdname ibpf
+##' @export
+setMethod(
+  "ibpf",
+  signature=signature(data="bpfilterd_spatPomp"),
+  definition=function (data,Nbpf,Np,rw.sd,
+      sharedParNames,
+      unitParNames,
+      cooling.type="geometric",
+      cooling.fraction.50,
+      block_size, block_list,spat_regression,
+      ..., verbose = getOption("verbose", FALSE)) {
+  ep <- paste0("in ",sQuote("ibpf"),": ")
+
+    if (!missing(block_list) & !missing(block_size)){
+      stop(ep,"Exactly one of ",sQuote("block_size"), " and ", sQuote("block_list"), " can be provided, but not both.",call.=FALSE)
+    }
+
+    if(missing(block_list) && missing(block_size))
+      block_list <- data@block_list
+
+    if (!missing(block_size)){
+      if(block_size > length(unit_names(data))){
+        stop(ep,sQuote("block_size"), " cannot be greater than the number of spatial units",call.=FALSE)
+      }
+      all_units = seq_len(length(unit_names(data)))
+      nblocks = round(length(all_units)/block_size)
+      block_list = split(all_units, sort(all_units %% nblocks))
+    }
+    block_list <- lapply(block_list, as.integer)
+
+## currently, ibpf always uses parameters taken from the model object
+## or params argument
+#    if (missing(Np)) {
+#      if (is.matrix(params)) {
+#        Np <- ncol(params)
+#      } else {
+#        stop(ep,sQuote("Np")," must be specified",call.=FALSE)
+#      }
+#    }
+
+    if (missing(Np)) Np <- data@Np
+
+    tryCatch(
+      ibpf_internal(data,Nbpf=Nbpf,spat_regression=spat_regression,
+        Np=Np,rw.sd=rw.sd,
+	sharedParNames=sharedParNames,
+	unitParNames=unitParNames,
+	cooling.type=cooling.type,cooling.fraction.50=cooling.fraction.50,
+        block_list=block_list,
+	...,verbose=verbose),
+        error = "error in ibpf_internal"
+    )
+  }
+)
+
+
+
+
+
+
 ibpf_internal <- function (object,Nbpf,spat_regression,Np,
    rw.sd,cooling.type,cooling.fraction.50,
    sharedParNames,
@@ -158,7 +293,7 @@ ibpf_internal <- function (object,Nbpf,spat_regression,Np,
    .gnsi = TRUE, verbose = FALSE) {
 
   verbose <- as.logical(verbose)
-  p_object <- pomp(object,verbose=verbose)
+  p_object <- pomp(object,...,verbose=verbose)
   object <- new("spatPomp",p_object,
                 unit_covarnames = object@unit_covarnames,
                 shared_covarnames = object@shared_covarnames,

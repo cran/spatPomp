@@ -31,14 +31,14 @@
 #' @param Tmax Upper time for the window used to construct the object. The lower time is fixed at 1950.0. The default value matches He et al (2010).
 #' @param expandedParNames specifies the names of parameters which take unit-specific values. Remaining parameters take a single, shared value for all units.
 #' @param basic_params A candidate parameter vector in the basic format, i.e., no unit-specific parameters or unit-related name extensions.
+#' @param towns_selected A numeric vector of towns to be modeled. Defaults 
+#' to 1:U, with cities ranked by decreasing population and 1 being London.
 #' @return An object of class \sQuote{spatPomp} representing a \code{U}-dimensional spatially coupled measles POMP model.
 #' @references
 #'
 #' \he2010
 #'
 #' \ionides2022
-#'
-#' \geosphere
 #'
 #' @note This function goes through a typical workflow of constructing
 #' a typical spatPomp object (1-4 below). This allows the user to have a
@@ -67,15 +67,8 @@
 #' }
 #' @export
 
-# NOTE: Code was written assuming that there are no fixed unit-specific
-# parameters.  That could arise if initial values
-# are estimated using some other data.
-
-# NOTE: currently assumes measles is loaded from load("data/twentycities.rda").
-# In future, this could be included in the package.
-
 he10 <- function(U=6,dt=2/365, Tmax=1964,
-  expandedParNames,
+  expandedParNames=c("alpha","iota","R0","cohort","amplitude","gamma","sigma","sigmaSE","rho","psi","g","S_0","E_0","I_0"),
   basic_params =c(
     alpha = 1,
     iota = 0,  
@@ -92,28 +85,23 @@ he10 <- function(U=6,dt=2/365, Tmax=1964,
     S_0 = 0.032, 
     E_0 = 0.00005, 
     I_0 = 0.00004
-  )
+  ),
+  towns_selected=NULL
 ){
 
-## for debugging
-## U=6;dt=2/365; Tmax=1964;extendedParNames=c("R0","g","S_0");basic_params =c(alpha = 1,iota = 0,  R0 = 30,cohort = 0,amplitude = 0.5,gamma = 52,sigma = 52,mu = 0.02,sigmaSE = 0.15, rho = 0.5,psi = 0.15,g = 400,S_0 = 0.032, E_0 = 0.00005, I_0 = 0.00004)
-  
-
-  if(U>20) stop("U <= 20")
+  if(!is.null(towns_selected) & U!=length(towns_selected)) stop("Require U==length(towns_selected) when towns_selected is specified")
+  if(is.null(towns_selected)) towns_selected <- 1:U
+  if(max(towns_selected)>20) stop("U <= 20")
   if(Tmax>1964) stop("Tmax <= 1964")
   birth_lag <- 4 # delay until births hit susceptibles, in years
 
   # data used for He et al 2010, following their decision
   # to remove 3 data points
 
-  measles_data <- spatPomp::he10measles
-  measles_data$date <- as.Date(measles_data$date)
-  measles_data$town <- as.character(measles_data$town)
-
+  he10_data <- spatPomp::he10measles
   demog <-  spatPomp::he10demography
-  demog$town <- as.character(demog$town)
 
-  # > measles_data[13769+1:5,]
+  # > he10_data[13769+1:5,]
   #            town       date cases
   # 13770 Liverpool 1955-11-04    10
   # 13771 Liverpool 1955-11-11    25
@@ -121,9 +109,9 @@ he10 <- function(U=6,dt=2/365, Tmax=1964,
   # 13773 Liverpool 1955-11-25    17
   # 13774 Liverpool 1955-12-02    18
 
-  measles_data[13772,"cases"] <- NA
+  he10_data[13772,"cases"] <- NA
 
-  # > measles_data[13949+1:5,]
+  # > he10_data[13949+1:5,]
   #            town       date cases
   # 13950 Liverpool 1959-04-17   143
   # 13951 Liverpool 1959-04-24   115
@@ -131,9 +119,9 @@ he10 <- function(U=6,dt=2/365, Tmax=1964,
   # 13953 Liverpool 1959-05-08    96
   # 13954 Liverpool 1959-05-15   157
 
-  measles_data[13952,"cases"] <- NA
+  he10_data[13952,"cases"] <- NA
 
-  # > measles_data[19551+1:5,]
+  # > he10_data[19551+1:5,]
   #             town       date cases
   # 19552 Nottingham 1961-08-18     6
   # 19553 Nottingham 1961-08-25     7
@@ -141,58 +129,52 @@ he10 <- function(U=6,dt=2/365, Tmax=1964,
   # 19555 Nottingham 1961-09-08     8
   # 19556 Nottingham 1961-09-15     7
 
-  measles_data[19554,"cases"] <- NA
+  he10_data[19554,"cases"] <- NA
 
   mean_pop <- sapply(split(demog,demog$town),function(x) mean(x$pop))
-  measles_data <- measles_data[order(mean_pop[measles_data$town],
-    -as.numeric(measles_data$date),decreasing=T),]
-  towns <-names(sort(mean_pop,decreasing=TRUE))[1:U]
-  measles_data$year <- as.integer(format(measles_data$date,"%Y"))
-  measles_data <-  measles_data[measles_data$town%in%towns,]
-  measles_data$time <- julian(measles_data$date,
+  he10_data <- he10_data[order(mean_pop[he10_data$town],
+    -as.numeric(he10_data$date),decreasing=T),]
+  towns <-names(sort(mean_pop,decreasing=TRUE))[towns_selected]
+  he10_data$year <- as.integer(format(he10_data$date,"%Y"))
+  he10_data <-  he10_data[he10_data$town%in%towns,]
+  he10_data$time <- julian(he10_data$date,
     origin=as.Date("1950-01-01"))/365.25+1950
-  measles_data <- measles_data[  
-    measles_data$time>1950 & measles_data$time<Tmax,]
+  he10_data <- he10_data[  
+    he10_data$time>1950 & he10_data$time<Tmax,]
 
-  dplyr::select(measles_data,dplyr::all_of(c("time","town","cases"))) -> measles_cases
+  dplyr::select(he10_data,dplyr::all_of(c("time","town","cases"))) -> he10_cases
     
-  measles_covar <- demog[order(mean_pop[demog$town],
+  he10_covar <- demog[order(mean_pop[demog$town],
     -as.numeric(demog$year),decreasing=T) , ]
-  measles_covar <- measles_covar[measles_covar$town %in% towns , ]
-  colnames(measles_covar)[2] <- "time"
+  he10_covar <- he10_covar[he10_covar$town %in% towns , ]
+  colnames(he10_covar)[2] <- "time"
 
   # note: London starts at 1939, others start at 1940
-  u <- split(measles_covar$births,measles_covar$town)
+  u <- split(he10_covar$births,he10_covar$town)
   v <- lapply(u,function(x){c(rep(NA,birth_lag),x[1:(length(x)-birth_lag)])})
   
   
-  measles_covar$lag_birthrate <- unlist(v[towns])
-  measles_covar$births<- NULL
+  he10_covar$lag_birthrate <- unlist(v[towns])
+  he10_covar$births<- NULL
 
-  # Distance between two points on a sphere radius R
-  # Adapted from geosphere package, which has been cited in the package
-  distHaversine <- function (p1, p2, r = 6378137)
-  {
-      toRad <- pi/180
-      p1 <- p1 * toRad
-      p2 <- p2 * toRad
-      p = cbind(p1[, 1], p1[, 2], p2[, 1], p2[, 2], as.vector(r))
-      dLat <- p[, 4] - p[, 2]
-      dLon <- p[, 3] - p[, 1]
-      a <- sin(dLat/2) * sin(dLat/2) + cos(p[, 2]) * cos(p[, 4]) *
-          sin(dLon/2) * sin(dLon/2)
-      a <- pmin(a, 1)
-      dist <- 2 * atan2(sqrt(a), sqrt(1 - a)) * p[, 5]
-      return(as.vector(dist))
+  # Haversine formula for great circle distance between two points
+  # on a sphere radius r. Here, r defaults to a mean radius for the
+  # earth, in miles.
+  distGreatCircle <- function(p1, p2, r = 3963.191) {
+    Lon1 <- p1[,1]*pi/180
+    Lat1 <- p1[,2]*pi/180
+    Lon2 <- p2[,1]*pi/180
+    Lat2 <- p2[,2]*pi/180
+    a <- sin((Lat2-Lat1)/2)^2 + cos(Lat1)*cos(Lat2)*sin((Lon2-Lon1)/2)^2
+    atan2(sqrt(a), sqrt(1 - a)) * 2 * r
   }
 
-  long_lat <- spatPomp::he10coordinates[
+  lon_lat <- spatPomp::he10coordinates[
     match(towns,spatPomp::he10coordinates$town),c("long","lat"),drop=FALSE]
   dmat <- matrix(0,U,U)
   for(u1 in 1:U) {
     for(u2 in 1:U) {
-      dmat[u1,u2] <- round(
-        distHaversine(long_lat[u1,],long_lat[u2,]) / 1609.344, 1)
+      dmat[u1,u2] <- round(distGreatCircle(lon_lat[u1,],lon_lat[u2,]),1)
     }
   }
 
@@ -220,12 +202,12 @@ he10 <- function(U=6,dt=2/365, Tmax=1964,
   set_fixed <- Csnippet(paste0("const int ", fixedParNames,
     "_unit = 0;\n", collapse=" "))
 
-  measles_globals <- Csnippet(
+  he10_globals <- Csnippet(
     paste(v_by_g_C, set_expanded, set_fixed, sep = "\n")
   )
 
   # add a "1" for shared parameter names to make the pointers work
-  measles_paramnames <- c(
+  he10_paramnames <- c(
     if(length(fixedParNames)>0){
       paste0(fixedParNames, "1")
     },
@@ -236,7 +218,7 @@ he10 <- function(U=6,dt=2/365, Tmax=1964,
 
   unit_statenames <- c('S','E','I','R','C')
 
-  measles_rprocess <- Csnippet('
+  he10_rprocess <- Csnippet('
     const double *amplitude=&amplitude1;
     const double *sigmaSE=&sigmaSE1;
     const double *mu=&mu1;
@@ -339,7 +321,7 @@ he10 <- function(U=6,dt=2/365, Tmax=1964,
      }
   ')
 
-  measles_dmeasure <- Csnippet("
+  he10_dmeasure <- Csnippet("
     const double *C = &C1;
     const double *cases = &cases1;
     const double *rho=&rho1;
@@ -378,7 +360,7 @@ he10 <- function(U=6,dt=2/365, Tmax=1964,
     
   ")
 
-  measles_rmeasure <- Csnippet("
+  he10_rmeasure <- Csnippet("
     const double *C = &C1;
     double *cases = &cases1;
     const double *rho = &rho1;
@@ -399,12 +381,12 @@ he10 <- function(U=6,dt=2/365, Tmax=1964,
     }
   ")
 
-  measles_dunit_measure <- Csnippet('
+  he10_dunit_measure <- Csnippet('
     const double *rho = &rho1;
     const double *psi = &psi1;
     double mytol = 1e-5;
-    double m = rho[(u-1)*rho_unit]*(C+mytol);
-    double v = m*(1.0-rho[(u-1)*rho_unit]+psi[(u-1)*psi_unit]*psi[(u-1)*psi_unit]*m);
+    double m = rho[u*rho_unit]*(C+mytol);
+    double v = m*(1.0-rho[u*rho_unit]+psi[u*psi_unit]*psi[u*psi_unit]*m);
     double tol = 1e-300;
     // C < 0 can happen in bootstrap methods such as bootgirf
     if(ISNA(cases)) {lik=1;} else { 
@@ -420,12 +402,12 @@ he10 <- function(U=6,dt=2/365, Tmax=1964,
     if(give_log) lik = log(lik);
   ')
 
-  measles_eunit_measure <- Csnippet("
+  he10_eunit_measure <- Csnippet("
     const double *rho = &rho1;
     ey = rho[u*rho_unit]*C;
   ")
 
-  measles_vunit_measure <- Csnippet("
+  he10_vunit_measure <- Csnippet("
     //consider adding 1 to the variance for the case C = 0
     const double *rho = &rho1;
     const double *psi = &psi1;
@@ -435,19 +417,7 @@ he10 <- function(U=6,dt=2/365, Tmax=1964,
     vc = m*(1.0-rho[u*rho_unit]+psi[u*psi_unit]*psi[u*psi_unit]*m);
   ")
 
-  measles_munit_measure <- Csnippet("
-    const double *rho = &rho1;
-    double binomial_var;
-    double m;
-    double mytol = 1e-5;
-    m = rho[u*rho_unit]*(C+mytol);
-    binomial_var = rho[u*rho_unit]*(1-rho[u*rho_unit])*C;
-    if(vc > binomial_var) {
-      M_psi1 = sqrt(vc - binomial_var)/m;
-    }
-  ")
-
-  measles_rinit <- Csnippet("
+  he10_rinit <- Csnippet("
     double *S = &S1;
     double *E = &E1;
     double *I = &I1;
@@ -471,7 +441,7 @@ he10 <- function(U=6,dt=2/365, Tmax=1964,
     }
   ")
 
-  measles_skel <- Csnippet('
+  he10_skel <- Csnippet('
     double beta, br, seas, foi;
     const double *amplitude=&amplitude1;
     const double *mu=&mu1;
@@ -551,35 +521,34 @@ logit_names <- unlist(lapply(basic_logit_names, function(x,U) paste0(x,1:U),U))
 ## it is possible for S+E+I to be greater than P,
 ## in which case R is negative, but that is not necessarily a critical problem.
 
-measles_partrans <- parameter_trans(log=log_names,logit=logit_names)
+he10_partrans <- parameter_trans(log=log_names,logit=logit_names)
 
-m1 <-  spatPomp(measles_cases,
+m1 <-  spatPomp(he10_cases,
           units = "town",
           times = "time",
-          t0 = min(measles_cases$time)-1/52,
+          t0 = min(he10_cases$time)-1/52,
           unit_statenames = unit_statenames,
-          covar = measles_covar,
-          rprocess=euler(measles_rprocess, delta.t=dt),
-          skeleton=vectorfield(measles_skel),
+          covar = he10_covar,
+          rprocess=euler(he10_rprocess, delta.t=dt),
+          skeleton=vectorfield(he10_skel),
           unit_accumvars = c("C"),
-          paramnames=measles_paramnames,
-          partrans=measles_partrans,
-          globals=measles_globals,
-          rinit=measles_rinit,
-          dmeasure=measles_dmeasure,
-          eunit_measure=measles_eunit_measure,
-          munit_measure=measles_munit_measure,
-          vunit_measure=measles_vunit_measure,
-          rmeasure=measles_rmeasure,
-          dunit_measure=measles_dunit_measure
+          paramnames=he10_paramnames,
+          partrans=he10_partrans,
+          globals=he10_globals,
+          rinit=he10_rinit,
+          dmeasure=he10_dmeasure,
+          eunit_measure=he10_eunit_measure,
+          vunit_measure=he10_vunit_measure,
+          rmeasure=he10_rmeasure,
+          dunit_measure=he10_dunit_measure
   )
 
-measles_params <- rep(0,length=length(measles_paramnames))
-names(measles_params) <- measles_paramnames
+he10_params <- rep(0,length=length(he10_paramnames))
+names(he10_params) <- he10_paramnames
 
-for(p in fixedParNames) measles_params[paste0(p,1)] <- basic_params[p]
-for(p in expandedParNames) measles_params[paste0(p,1:U)] <- basic_params[p]
+for(p in fixedParNames) he10_params[paste0(p,1)] <- basic_params[p]
+for(p in expandedParNames) he10_params[paste0(p,1:U)] <- basic_params[p]
 
-coef(m1) <- measles_params
+coef(m1) <- he10_params
 m1
 }

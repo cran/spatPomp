@@ -42,6 +42,12 @@ b_model <- bm(U=2,N=2)
 ## ____________________________________________________________
 
 ##
+## exact likelihood via the Kalman filter
+##
+
+paste("bm kalman filter loglik: ",round(bm_kalman_logLik(b_model),10))
+
+##
 ## pfilter tested on bm
 ##
 
@@ -72,8 +78,13 @@ paste("bm abfir loglik: ",round(logLik(b_abfir),10))
 ## bpfilter tested on bm
 ##
 
+set.seed(5)
 b_bpfilter <- bpfilter(b_model, Np = 10, block_size = 1)
 paste("bm bpfilter loglik: ",round(logLik(b_bpfilter),10))
+set.seed(5)
+b_bpfilter_repeat <- bpfilter(b_bpfilter)
+paste("check bpfilter on bpfilterd_spatPomp: ",
+  logLik(b_bpfilter)==logLik(b_bpfilter_repeat))
 
 ##
 ## enkf tested on bm
@@ -86,14 +97,19 @@ paste("bm enkf loglik: ",round(logLik(b_enkf),10))
 ## girf tested on bm, both moment and bootstrap methods
 ##
 
-b_girf_mom <- girf(b_model,Np = 10,lookahead = 1,Nguide = 10,
-  kind = 'moment')
+b_girf_mom <- girf(b_model,Np = 5,lookahead = 1,Nguide = 5,
+  kind = 'moment',Ninter=2)
 paste("bm girf loglik, moment guide: ",round(logLik(b_girf_mom),10))
 
-b_girf_boot <- girf(b_model,Np = 10,lookahead = 1,Nguide = 10,
-  kind = 'bootstrap')
+set.seed(0)
+b_girf_boot <- girf(b_model,Np = 5,lookahead = 1,Nguide = 5,
+  kind = 'bootstrap',Ninter=2)
 paste("bm girf loglik, bootstrap guide: ",round(logLik(b_girf_boot),10))
 
+set.seed(0)
+b_girf_boot_repeat <- girf(b_girf_boot)
+paste("check girf on girfd_spatPomp: ",
+  logLik(b_girf_boot)==logLik(b_girf_boot_repeat))
 
 ## ------------------------------------------------------------
 ## Now, we test the inference methods
@@ -110,6 +126,7 @@ b_rw.sd <- rw.sd(rho=0.02,X1_0=ivp(0.02))
 ##
 ## we test both geometric and hyperbolic cooling
 
+set.seed(1)
 b_igirf_geom <- igirf(b_model,
   Ngirf = 2,
   rw.sd = b_rw.sd,
@@ -123,6 +140,12 @@ b_igirf_geom <- igirf(b_model,
   verbose = FALSE
 )
 paste("bm igirf loglik, geometric cooling, verbose=F: ",round(logLik(b_igirf_geom),10))
+
+set.seed(1)
+b_igirf_geom_repeat <- igirf(b_igirf_geom,params=coef(b_model))
+paste("check igirf on igirfd_spatPomp: ",
+  logLik(b_igirf_geom)==logLik(b_igirf_geom_repeat))
+
 
 b_igirf_hyp <- igirf(b_model,
   Ngirf = 2,
@@ -160,7 +183,7 @@ b_ienkf_hyp <- ienkf(b_model,
   cooling.fraction.50 = 0.5,
   verbose=TRUE
 )
-paste("bm ienkf loglik, hypoerbolic cooling, verbose=T: ",round(logLik(b_ienkf_hyp),10))
+paste("bm ienkf loglik, hyperbolic cooling, verbose=T: ",round(logLik(b_ienkf_hyp),10))
 
 ##
 ## iubf on bm, with geometric and hyperbolic cooling
@@ -168,8 +191,8 @@ paste("bm ienkf loglik, hypoerbolic cooling, verbose=T: ",round(logLik(b_ienkf_h
 
 b_iubf_geom <- iubf(b_model,
   Nubf = 2,
-  Nrep_per_param = 3,
-  Nparam = 3,
+  Nrep_per_param = 5,
+  Nparam = 5,
   nbhd = b_bag_nbhd,
   prop = 0.8,
   rw.sd =b_rw.sd,
@@ -181,12 +204,13 @@ paste("bm iubf loglik, geometric cooling, verbose=F: ",round(logLik(b_iubf_geom)
 
 b_iubf_hyp <- iubf(b_model,
   Nubf = 2,
-  Nrep_per_param = 3,
-  Nparam = 3,
+  Nrep_per_param = 5,
+  Nparam = 5,
   nbhd = b_bag_nbhd,
   prop = 0.8,
   rw.sd =b_rw.sd,
-  cooling.type = "hyperbolic",
+#  cooling.type = "hyperbolic",
+  cooling.type = "geometric",
   cooling.fraction.50 = 0.5,
   verbose=TRUE
 )
@@ -223,6 +247,7 @@ dimnames(b_s) <- list(variable=dimnames(states(b_model))[[1]], rep=NULL)
 b_p <- coef(b_model)
 dim(b_p) <- c(length(b_p),1)
 dimnames(b_p) <- list(param=names(coef(b_model)))
+b_y <- obs(b_model)[,1,drop=FALSE]
 
 vunit_measure(b_model, x=b_s, unit=2, time=1, params=b_p)
 
@@ -237,7 +262,7 @@ dim(b_vc) <- c(length(b_vc), 1, 1)
 munit_measure(b_model, x=b_s, vc=b_vc, Np=1, unit = 1, time=1,
   params=b_array.params)
 
-dunit_measure(b_model, y=obs(b_model)[,1,drop=FALSE],
+dunit_measure(b_model, y=b_y,
   x=b_s, unit=1, time=1, params=b_p)
 
 runit_measure(b_model, x=b_s, unit=2, time=1, params=b_p)
@@ -249,6 +274,24 @@ runit_measure(b_model, x=b_s, unit=2, time=1, params=b_p)
 
 print(b_model)
 
+# check how u is treated by dunit_measure, runit_measure, eunit_measure,
+# vunit_measure and munit_measure. this should output unit-1 to
+# be consistent with Csnippet indexing.
+
+b_u <- spatPomp(b_model,
+  dunit_measure=spatPomp_Csnippet("lik=u;"),
+  eunit_measure=spatPomp_Csnippet("ey=u;"),
+  munit_measure=spatPomp_Csnippet("M_tau=u;"),
+  vunit_measure=spatPomp_Csnippet("vc=u;"),
+  runit_measure=spatPomp_Csnippet("Y=u;")  
+)
+
+vunit_measure(b_u, x=b_s, unit=2, time=1, params=b_p)
+eunit_measure(b_u, x=b_s, unit=2, time=1, params=b_p)
+munit_measure(b_u, x=b_s, vc=b_vc, Np=1, unit = 2, time=1,params=b_array.params)
+dunit_measure(b_u, y=b_y,x=b_s, unit=2, time=1, params=b_p)
+runit_measure(b_u, x=b_s, unit=2, time=1, params=b_p)
 
 dev.off()
+
 
