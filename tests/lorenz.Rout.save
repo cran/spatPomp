@@ -1,5 +1,5 @@
 
-R version 4.2.1 (2022-06-23) -- "Funny-Looking Kid"
+R version 4.2.2 (2022-10-31) -- "Innocent and Trusting"
 Copyright (C) 2022 The R Foundation for Statistical Computing
 Platform: x86_64-apple-darwin17.0 (64-bit)
 
@@ -20,6 +20,14 @@ Type 'q()' to quit R.
 > 
 > library(spatPomp)
 Loading required package: pomp
+
+Welcome to pomp!
+
+As of version 4.6, no user-visible pomp function has a name that
+includes a dot ('.'). Function names have been changed to replace the
+dot with an underscore ('_'). For more information, see the pomp blog:
+https://kingaa.github.io/pomp/blog.html.
+
 > set.seed(3)
 > 
 > l <- lorenz(U=5,N=3)
@@ -32,7 +40,7 @@ Loading required package: pomp
 > 
 > l_igirf <- igirf(l,
 +   Ngirf = 2,
-+   rw.sd = rw.sd(F=0.02, tau=0.02,X1_0=ivp(0),X2_0=ivp(0)),
++   rw.sd = rw_sd(F=0.02, tau=0.02,X1_0=ivp(0),X2_0=ivp(0)),
 +   cooling.type = "hyperbolic",
 +   cooling.fraction.50 = 0.5,
 +   Np=10,

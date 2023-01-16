@@ -11,7 +11,8 @@
 ##' @rdname abf
 ##' @include spatPomp_class.R
 ##' @author Kidus Asfaw
-##' @family particle filter methods
+##' @family likelihood evaluation algorithms
+##' @seealso likelihood maximization algorithms: \code{ienkf()}, \code{igirf}, \code{iubf}, \code{ibpf}
 ##' @importFrom foreach %dopar%
 ##' @references
 ##'
@@ -321,6 +322,7 @@ setMethod(
       object,
       Np=as.integer(Np),
       Nrep=as.integer(Nrep),
+      nbhd=nbhd,
       tol=tol,
       cond_loglik=cond_loglik,
       loglik=sum(cond_loglik)

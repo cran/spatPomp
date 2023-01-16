@@ -19,6 +19,14 @@ Type 'q()' to quit R.
 
 > library(spatPomp)
 Loading required package: pomp
+
+Welcome to pomp!
+
+As of version 4.6, no user-visible pomp function has a name that
+includes a dot ('.'). Function names have been changed to replace the
+dot with an underscore ('_'). For more information, see the pomp blog:
+https://kingaa.github.io/pomp/blog.html.
+
 > set.seed(22)
 > 
 > model_type <- "he10"
@@ -92,7 +100,7 @@ Loading required package: pomp
 >  
 > ivp_rw.sd <- lapply(ivpEstParNames_expanded,function(x)expression(ivp(0.05)))
 > names(ivp_rw.sd) <- ivpEstParNames_expanded
-> h_rw.sd <- do.call(rw.sd,c(reg_rw.sd,ivp_rw.sd))
+> h_rw.sd <- do.call(rw_sd,c(reg_rw.sd,ivp_rw.sd))
 > 
 > all_units = seq_len(length(unit_names(h_model)))
 > nblocks = 2

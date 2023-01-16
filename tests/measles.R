@@ -52,7 +52,7 @@ m3_igirf_ngirf <- 2
 
 m3_igirf_out <- igirf(m_model, Ngirf = m3_igirf_ngirf,
   params=m3_params,
-  rw.sd=rw.sd(g=0.02),
+  rw.sd=rw_sd(g=0.02),
   cooling.type = "geometric",
   cooling.fraction.50 = 0.5,
   Np=m3_igirf_np,
@@ -64,4 +64,15 @@ m3_igirf_out <- igirf(m_model, Ngirf = m3_igirf_ngirf,
 )
 logLik(m3_igirf_out)
 
+## --------------------------------------------------------------------
+## using measles to test spatPomp() covariate replacement functionality
+## ____________________________________________________________________
 
+m_covrep <- spatPomp(m,
+  covar=spatPomp::measlesUK[
+    measlesUK$city %in% m@unit_names,
+    c("year","city","pop","births")]
+)
+for(slt in slotNames(m)) if(!identical(slot(m,slt),slot(m_covrep,slt))) print(slt)
+## covariates are not the same since this replacement does not deal with
+## birth delay
