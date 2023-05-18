@@ -1,6 +1,6 @@
 
-R version 4.2.2 (2022-10-31) -- "Innocent and Trusting"
-Copyright (C) 2022 The R Foundation for Statistical Computing
+R version 4.2.3 (2023-03-15) -- "Shortstop Beagle"
+Copyright (C) 2023 The R Foundation for Statistical Computing
 Platform: x86_64-apple-darwin17.0 (64-bit)
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
@@ -32,8 +32,9 @@ https://kingaa.github.io/pomp/blog.html.
 > gbm_model <- gbm(U=3,N=2) 
 > 
 > gbm_pf <- pfilter(gbm_model,Np=10)
-> logLik(gbm_pf)
-[1] -15.25947
+> 
+> paste("gbm pfilter loglik:",round(logLik(gbm_pf),10))
+[1] "gbm pfilter loglik: -15.2594676712"
 > 
 > ## A call to igirf using the moment-based guide function can test compiled code for eunit_measure, munit_measure, vunit_measure, dunit_measure, runit_measure, rprocess, skeleton, rinit and partrans. 
 > 
@@ -50,8 +51,19 @@ https://kingaa.github.io/pomp/blog.html.
 +   verbose = FALSE
 + )
 > 
-> logLik(gbm_igirf_out)
-[1] -14.58847
+> paste("gbm igirf loglik:", round(logLik(gbm_igirf_out),10))
+[1] "gbm igirf loglik: -14.5884737681"
+> 
+> ## --------------------------------------------
+> ## using gbm to test arma_benchmark()
+> ## ____________________________________________
+> 
+> a1 <- arma_benchmark(gbm_model,order=c(1,0,0))
+> 
+> paste("ARMA benchmark:", round(a1$total,10))
+[1] "ARMA benchmark: 196.3173327754"
+> 
+> 
 > 
 > 
 > 
