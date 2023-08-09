@@ -134,6 +134,10 @@ setMethod(
     kind = match.arg(kind)
 
     if(kind == 'moment'){
+      if(length(object@munit_measure@PACKAGE)==0) stop("girf with kind = 'moment' requires munit_measure")
+      if(length(object@eunit_measure@PACKAGE)==0) stop("girf with kind = 'moment' requires eunit_measure")
+      if(length(object@vunit_measure@PACKAGE)==0) stop("girf with kind = 'moment' requires vunit_measure")
+
       tryCatch(
         g <- momgirf.internal(
           object,
@@ -449,7 +453,7 @@ momgirf.internal <- function (object,
       }
       else{
         cond.loglik[nt+1, s] <- -Inf
-        x <- X
+        x <- X[,,1]
         log_filter_guide_fun <- log(tol)
       }
     }
@@ -693,7 +697,7 @@ bootgirf.internal <- function (object,
       }
       else{
         cond.loglik[nt+1, s] <- -Inf
-        x <- X
+        x <- X[,,1]
         log_filter_guide_fun <- log(tol)
       }
       gc()
