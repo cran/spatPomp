@@ -1,7 +1,7 @@
 
-R version 4.2.3 (2023-03-15) -- "Shortstop Beagle"
-Copyright (C) 2023 The R Foundation for Statistical Computing
-Platform: x86_64-apple-darwin17.0 (64-bit)
+R version 4.4.0 (2024-04-24) -- "Puppy Cup"
+Copyright (C) 2024 The R Foundation for Statistical Computing
+Platform: aarch64-apple-darwin20
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
@@ -17,13 +17,12 @@ Type 'demo()' for some demos, 'help()' for on-line help, or
 'help.start()' for an HTML browser interface to help.
 Type 'q()' to quit R.
 
-> png(filename="bm-%02d.png",res=100)
 > library(spatPomp)
 Loading required package: pomp
 > i <- 1
 > U <- switch(i,2,10)
 > N <- switch(i,2,10)
-> Np <- switch(i,10,100)
+> Np <- switch(i,5,100)
 > 
 > # For CRAN tests, need to limit to two cores
 > # https://stackoverflow.com/questions/50571325/r-cran-check-fail-when-using-parallel-functions
@@ -57,7 +56,53 @@ Loading required package: pomp
 > ## using doRNG with 1 core leads to warnings: it seems to make
 > ## foreach confused about whether it is running in parallel or not.
 > 
-> b_model <- bm(U=U,N=N) 
+> b_model <- bm(U=U,N=N)
+> b_model_no_params <-  spatPomp(b_model,params=NULL)
+> b_model_no_rprocess <- spatPomp(b_model,rprocess=NULL)
+> b_model_no_eunit_measure <- spatPomp(b_model,eunit_measure=NULL)
+> b_model_no_vunit_measure <- spatPomp(b_model,vunit_measure=NULL)
+> b_model_no_runit_measure <- spatPomp(b_model,runit_measure=NULL)
+> b_model_no_dunit_measure <- spatPomp(b_model,dunit_measure=NULL)
+> b_model_no_munit_measure <- spatPomp(b_model,munit_measure=NULL)
+> b_model_t0_equal_t1 <- spatPomp(b_model,t0=1)
+> b_model5 <- bm(U=U,N=5) 
+> b_model_with_accumvars <- b_model
+> b_model_with_accumvars@accumvars <- rownames(states(b_model))
+> 
+> b_model_zero_dmeasure <- spatPomp(b_model,
++   dmeasure = spatPomp_Csnippet(
++     method="dmeasure",
++     unit_statenames="X",
++     unit_obsnames="Y",
++     code = "
++       lik = give_log ? log(0) : 0;
++     "
++   ),
++   dunit_measure = spatPomp_Csnippet("
++     lik = give_log ? log(0) : 0;
++   ")
++ )
+> 
+> b_bag_nbhd <- function(object, time, unit) {
++   nbhd_list <- list()
++   if(unit>1) nbhd_list <- c(nbhd_list, list(c(unit-1, time)))
++   return(nbhd_list)
++ }
+> 
+> b_bag_nbhd_lookback1 <- function(object, time, unit) {
++   nbhd_list <- list()
++   if(unit>1) nbhd_list <- c(nbhd_list, list(c(unit-1, time)))
++   if(time>1)  nbhd_list <- c(nbhd_list, list(c(unit, time-1)))
++   return(nbhd_list)
++ }
+> 
+> b_bag_nbhd_lookback2 <- function(object, time, unit) {
++   nbhd_list <- list()
++   if(unit>1) nbhd_list <- c(nbhd_list, list(c(unit-1, time)))
++   if(time>1) nbhd_list <- c(nbhd_list, list(c(unit, time-1)))
++   if(time>2)  nbhd_list <- c(nbhd_list, list(c(unit, time-2)))
++   return(nbhd_list)
++ }
 > 
 > ## ------------------------------------------------------------
 > ## The bm model provides a simple example to test other methods.
@@ -77,24 +122,19 @@ Loading required package: pomp
 > 
 > b_pf <- pfilter(b_model,Np=Np)
 > paste("bm pfilter loglik: ",round(logLik(b_pf),10))
-[1] "bm pfilter loglik:  -10.1282113761"
+[1] "bm pfilter loglik:  -13.7472688507"
 > 
-> ##
+> ## ---------------------------------------------------------------
 > ## abf tested on bm. abf uses parallelization, so we also test that
-> ##
+> ## _______________________________________________________________
 > 
-> b_bag_nbhd <- function(object, time, unit) {
-+   nbhd_list <- list()
-+   if(unit>1) nbhd_list <- c(nbhd_list, list(c(unit-1, time)))
-+   return(nbhd_list)
-+ }
 > 
 > set.seed(7)
 > b_abf <- abf(b_model,Nrep=2,Np=Np, nbhd = b_bag_nbhd)
 Warning message:
 executing %dopar% sequentially: no parallel backend registered 
 > paste("bm abf loglik: ",round(logLik(b_abf),10))
-[1] "bm abf loglik:  -9.6241814039"
+[1] "bm abf loglik:  -10.4535588344"
 > 
 > set.seed(7)
 > b_abf_repeat <- abf(b_abf)
@@ -102,27 +142,88 @@ executing %dopar% sequentially: no parallel backend registered
 +   logLik(b_abf_repeat)==logLik(b_abf))
 [1] "check abf on abfd_spatPomp:  TRUE"
 > 
-> ##
+> try(abf(b_model))
+Error : in ‘abf’: ‘Nrep’ must be specified
+> try(abf(b_model,Nrep=2))
+Error : in ‘abf’: ‘Np’ must be specified
+> try(abf(b_model,Nrep=2,Np=3))
+<object of class ‘abfd_spatPomp’>
+> try(abf(b_model_no_params,Nrep=2,Np=3))
+Error : in ‘abf’: ‘params’ is required when not provided in the spatPomp 
+> try(abf(b_model,Nrep=2,Np="JUNK"))
+Error in spatPomp:::abf_internal(object = object, Np = Np, nbhd = nbhd,  : 
+  task 1 failed - "in ‘in ‘abf’: ’: ‘Np’ must be a number, a vector of numbers, or a function"
+> try(abf(b_model,Nrep=2,Np=function(n)"JUNK"))
+Error in spatPomp:::abf_internal(object = object, Np = Np, nbhd = nbhd,  : 
+  task 1 failed - "if ‘Np’ is a function, it must return a single positive integer"
+> try(abf(b_model,Nrep=2,Np=-1))
+Error in spatPomp:::abf_internal(object = object, Np = Np, nbhd = nbhd,  : 
+  task 1 failed - "in ‘abf’: number of particles, ‘Np’, must always be positive"
+> try(abf(b_model,Nrep=2,Np=1:42))
+Error in spatPomp:::abf_internal(object = object, Np = Np, nbhd = nbhd,  : 
+  task 1 failed - "in ‘abf’: ‘Np’ must have length 1 or length 3"
+> param_matrix <- cbind(coef(b_model),coef(b_model))
+> rownames(param_matrix) <- names(coef(b_model))
+> try(abf(b_model,Nrep=2,Np=2,params=param_matrix))
+Error : in ‘abf’: ‘params’ should be a named vector
+> abf(b_model_zero_dmeasure,Nrep=2,Np=Np,verbose=TRUE)
+abf timestep 1 of 2 finished
+abf timestep 2 of 2 finished
+abf timestep 1 of 2 finished
+abf timestep 2 of 2 finished
+<object of class ‘abfd_spatPomp’>
+> 
+> 
+> ## ---------------------------------------------------------------
 > ## abfir tested on bm
-> ##
+> ## _______________________________________________________________
 > 
 > b_abfir <- abfir(b_model, Nrep = 2, Np = Np, nbhd = b_bag_nbhd)
 > paste("bm abfir loglik: ",round(logLik(b_abfir),10))
-[1] "bm abfir loglik:  -9.6437796804"
+[1] "bm abfir loglik:  -11.4654403221"
 > 
-> ##
+> capture.output(
++   abfir(b_abfir,verbose=TRUE,accumvars="X1")
++ ) -> b_abfir_out
+> abfir(b_model, Nrep = 2, Np = Np)
+<object of class ‘abfird_spatPomp’>
+> try(abfir(b_model))
+Error : in ‘abfir’: ‘Np’ must be specified
+> try(abfir(b_model,Nrep=2))
+Error : in ‘abfir’: ‘Np’ must be specified
+> try(abfir(b_model,Nrep=2,Np=function(n)"JUNK"))
+Error in spatPomp:::abfir_internal(object = object, Np = Np, nbhd = nbhd,  : 
+  task 1 failed - "in ‘abfir’ : Functions for Np not supported by abfir"
+> try(abfir(b_model,Nrep=2,Np=1:10))
+Error in spatPomp:::abfir_internal(object = object, Np = Np, nbhd = nbhd,  : 
+  task 1 failed - "in ‘abfir’ : Np should be a length 1 vector"
+> try(abfir(b_model,Nrep=2,Np=Np,params=unname(coef(b_model))))
+Error : in ‘abfir’: ‘params’ must be a named vector
+> try(abfir(b_model_zero_dmeasure,Nrep = 3, Np = Np))
+Error in spatPomp:::abfir_internal(object = object, Np = Np, nbhd = nbhd,  : 
+  task 1 failed - "incorrect number of dimensions"
+> 
+> # test abfir when all particles fail...
+> # make this happen by setting a high tol
+> abfir(b_abfir,tol=1000)
+<object of class ‘abfird_spatPomp’>
+> 
+> ## --------------------------------------------------------------
 > ## bpfilter tested on bm
-> ##
+> ## ______________________________________________________________
 > 
 > set.seed(5)
 > b_bpfilter <- bpfilter(b_model, Np = Np, block_size = 1)
 > paste("bm bpfilter loglik: ",round(logLik(b_bpfilter),10))
-[1] "bm bpfilter loglik:  -11.2089477605"
+[1] "bm bpfilter loglik:  -10.4726151819"
 > set.seed(5)
 > b_bpfilter_repeat <- bpfilter(b_bpfilter)
 > paste("check bpfilter on bpfilterd_spatPomp: ",
 +   logLik(b_bpfilter)==logLik(b_bpfilter_repeat))
 [1] "check bpfilter on bpfilterd_spatPomp:  TRUE"
+> 
+> bpfilter(b_model_t0_equal_t1,Np = Np, block_size = 1,filter_traj=TRUE)
+<object of class ‘bpfilterd_spatPomp’>
 > 
 > set.seed(5)
 > b_bpfilter_filter_traj <- bpfilter(b_bpfilter,filter_traj=TRUE)
@@ -131,9 +232,8 @@ executing %dopar% sequentially: no parallel backend registered
 > round(b_bpfilter_filter_traj@filter.traj[,1,],3)
     time
 name [,1]  [,2]  [,3]
-  X1    0 1.373 2.349
-  X2    0 2.035 0.796
-> 
+  X1    0 1.006 0.488
+  X2    0 1.892 0.933
 > 
 > set.seed(5)
 > b_bpfilter_save_states <- bpfilter(b_bpfilter,save_states=TRUE)
@@ -141,29 +241,76 @@ name [,1]  [,2]  [,3]
 [1] "bpfilter final particles: "
 > round(b_bpfilter_save_states@saved.states[[N]],3)
     .id
-name  [,1]  [,2]  [,3]  [,4]  [,5]  [,6]  [,7]  [,8]  [,9] [,10]
-  X1 2.611 2.236 2.186 2.186 2.349 1.077 1.077 1.155 1.442 1.063
-  X2 0.796 0.442 0.442 0.231 0.231 0.231 0.648 0.648 1.337 1.019
+name  [,1]   [,2]   [,3]   [,4]   [,5]
+  X1 3.063  1.919  2.978  0.836  0.488
+  X2 0.933 -0.038 -0.038 -0.038 -0.038
 > 
-> ##
+> set.seed(5)
+> b_bpfilter_inf <- bpfilter(b_model_zero_dmeasure, Np = Np, block_size = 1)
+> paste("bm bpfilter loglik, zero measurement: ",
++   round(logLik(b_bpfilter_inf),10))
+[1] "bm bpfilter loglik, zero measurement:  NaN"
+> 
+> ## test bpfilter error messages
+> try(bpfilter())
+Error in bpfilter() : bpfilter: data is a required argument.
+> try(bpfilter("JUNK"))
+Error : ‘bpfilter’ is undefined for ‘data’ of class ‘character’.
+> try(bpfilter(b_model))
+Error : in ‘bpfilter’: ‘block_list’ or ‘block_size’ must be specified to the call
+> try(bpfilter(b_model,block_list=block_list,block_size=23))
+Error : in ‘bpfilter’: Exactly one of ‘block_size’ and ‘block_list’ should be provided, but not both.
+> try(bpfilter(b_model,block_list=block_list))
+Error : in ‘bpfilter’: ‘Np’ must be specified
+> try(bpfilter(b_model,Np=10,block_size=1000))
+Error : in ‘bpfilter’: ‘block_size’ cannot be greater than the number of spatial units
+> try(bpfilter(b_bpfilter,block_list=block_list,block_size=23))
+Error : in ‘bpfilter’: Exactly one of ‘block_size’ and ‘block_list’ can be provided, but not both.
+> try(bpfilter(b_bpfilter,Np=10,block_size=1000))
+Error : in ‘bpfilter’: ‘block_size’ cannot be greater than the number of spatial units
+> try(bpfilter(b_bpfilter,Np=-1))
+Error : in ‘bpfilter’: number of particles, ‘Np’, must always be positive
+> try(bpfilter(b_bpfilter,Np=1:1000))
+Error : in ‘bpfilter’: ‘Np’ must have length 1 or length 3
+> try(bpfilter(b_bpfilter,Np="JUNK"))
+Error : in ‘bpfilter’: ‘Np’ must be a number, a vector of numbers, or a function
+> test_params_matrix <- cbind(coef(b_model),coef(b_model),coef(b_model))
+> try(bpfilter(b_bpfilter,params=test_params_matrix))
+Error : ‘params’ must be a named numeric vector.
+> 
+> 
+> ## -----------------------------------------------------------------
 > ## enkf tested on bm
-> ##
+> ## ________________________________________________________________
+> 
+> ## test error messages
+> try(enkf())
+Error : in ‘enkf’ : ‘data’ is a required argument.
+> try(enkf("JUNK"))
+Error : ‘enkf’ is undefined for ‘data’ of class ‘character’.
+> try(enkf(b_model_no_rprocess))
+Error : in ‘enkf’ : ‘rprocess’ is a needed basic component.
+> try(enkf(b_model_no_eunit_measure))
+Error : in ‘enkf’ : ‘eunit_measure’ is a needed basic component.
+> try(enkf(b_model_no_vunit_measure))
+Error : in ‘enkf’ : ‘vunit_measure’ is a needed basic component.
 > 
 > set.seed(5)
 > b_enkf <- enkf(b_model, Np = Np)
 > paste("bm enkf loglik: ",round(logLik(b_enkf),10))
-[1] "bm enkf loglik:  -10.8897941231"
+[1] "bm enkf loglik:  -9.9066543616"
 > 
-> ##
+> 
+> ## -----------------------------------------------------------------
 > ## girf on bm: moment and bootstrap methods, followed by error tests
-> ##
+> ## ________________________________________________________________
 > 
 > set.seed(0)
 > b_girf_mom <- girf(b_model,Np = floor(Np/2),lookahead = 1,
 +   Nguide = floor(Np/2),
 +   kind = 'moment',Ninter=2)
 > paste("bm girf loglik, moment guide: ",round(logLik(b_girf_mom),10))
-[1] "bm girf loglik, moment guide:  -14.9828908185"
+[1] "bm girf loglik, moment guide:  -12.2974601246"
 > 
 > ## for boostrap girf, we do not set Ninter, to test the default which is Ninter=U
 > set.seed(0)
@@ -171,7 +318,7 @@ name  [,1]  [,2]  [,3]  [,4]  [,5]  [,6]  [,7]  [,8]  [,9] [,10]
 +   Nguide = floor(Np/2),
 +   kind = 'bootstrap')
 > paste("bm girf loglik, bootstrap guide: ",round(logLik(b_girf_boot),10))
-[1] "bm girf loglik, bootstrap guide:  -14.3228315101"
+[1] "bm girf loglik, bootstrap guide:  -14.1036642632"
 > 
 > set.seed(0)
 > b_girf_boot_repeat <- girf(b_girf_boot)
@@ -179,17 +326,80 @@ name  [,1]  [,2]  [,3]  [,4]  [,5]  [,6]  [,7]  [,8]  [,9] [,10]
 +   logLik(b_girf_boot)==logLik(b_girf_boot_repeat))
 [1] "check girf on girfd_spatPomp:  TRUE"
 > 
-> print("The following delivers an error message, to test it")
-[1] "The following delivers an error message, to test it"
+> ## check girf for zero measurement density situations
+> b_girf_mom_inf <- girf(b_model_zero_dmeasure,Np = floor(Np/2),lookahead = 1,
++   Nguide = 3,
++   kind = 'moment',Ninter=2)
+> paste("bm moment girf loglik, zero measurement: ",
++   round(logLik(b_girf_mom_inf),10))
+[1] "bm moment girf loglik, zero measurement:  -Inf"
+> 
+> set.seed(0)
+> b_girf_boot_inf <- girf(b_model_zero_dmeasure,Np = floor(Np/2),lookahead = 1,
++   Nguide = 3,
++   kind = 'bootstrap',Ninter=2)
+> paste("bm bootstrap girf loglik, zero measurement: ",
++   round(logLik(b_girf_boot_inf),10))
+[1] "bm bootstrap girf loglik, zero measurement:  -Inf"
+> 
+> print("The following deliver an error message, to test it")
+[1] "The following deliver an error message, to test it"
 > try(girf())
-Error in girf() : girf: data is a required argument.
-> try(girf(object="nonsense"))
-Error in girf(object = "nonsense") : 
-  girf is undefined for ‘nonsense’of class ‘character’.
+Error : girf: data is a required argument.
+> try(girf("JUNK"))
+Error : girf is undefined for ‘object’ of class ‘character’.
 > try(girf(b_girf_boot,Np=c(Inf)))
-Error : in ‘girf’: ‘Np’ must be a single positive integer
+Error : in ‘girf (method=bootstrap)’: ‘Np’ must be a single positive integer
 > try(girf(b_girf_boot,Np=seq(from=10,length=N+1,by=2)))
-Error : in ‘girf’: ‘Np’ must be a single positive integer
+Error : in ‘girf (method=bootstrap)’: ‘Np’ must be a single positive integer
+> try(girf(b_model_no_eunit_measure,kind='moment'))
+Error : girf with kind = 'moment' requires eunit_measure
+> try(girf(b_model_no_vunit_measure,kind='moment'))
+Error : girf with kind = 'moment' requires vunit_measure
+> try(girf(b_model_no_rprocess,kind='moment'))
+Error : in ‘girf (method=moment)’: ‘rprocess’, ‘dmeasure’ are needed basic components.
+> try(girf(b_model,kind='moment'))
+Error : in ‘girf (method=moment)’: ‘Np’ must be specified.
+> try(girf(b_model,kind='moment',Np=5))
+Error : in ‘girf (method=moment)’: argument "Nguide" is missing, with no default
+> try(girf(b_model,kind='moment',Np=5,Nguide=3,tol=1:1000))
+Error : in ‘girf (method=moment)’: ‘tol’ should be a small positive number.
+> try(girf(b_model_no_rprocess,kind='boot'))
+Error : in ‘girf (method=bootstrap)’: ‘rprocess’, ‘dmeasure’ are needed basic components.
+> try(girf(b_model,kind='boot'))
+Error : in ‘girf (method=bootstrap)’: ‘Np’ must be specified.
+> try(girf(b_model,kind='boot',Np=5))
+Error : in ‘girf (method=bootstrap)’: argument "Nguide" is missing, with no default
+> try(girf(b_model,kind='boot',Np=5,Nguide=3,tol=1:1000))
+Error : in ‘girf (method=bootstrap)’: ‘tol’ should be a small positive number.
+> 
+> try(girf(b_model_no_params,Np = 3,lookahead = 1, Nguide = 3,
++   kind = 'moment',Ninter=2))
+Error : in ‘girf (method=moment)’: ‘params’ must be specified if not provided in the spatPomp model object
+> try(girf(b_model_no_params,Np = 3,lookahead = 1, Nguide = 3,
++   kind = 'boot',Ninter=2))
+Error : in ‘girf (method=bootstrap)’: ‘params’ must be specified
+>   
+> try(girf(b_model,Np = 1:10,lookahead = 1, Nguide = 3,
++   kind = 'moment',Ninter=2))
+Error : in ‘girf (method=moment)’: ‘Np’ must be a single positive integer
+> try(girf(b_model,Np = "JUNK",lookahead = 1, Nguide = 3,
++   kind = 'moment',Ninter=2))
+Error : in ‘girf (method=moment)’: ‘Np’ must be a single positive integer
+> 
+> girf(b_model_with_accumvars,Np = 3,lookahead = 2, Nguide = 3,
++   kind = 'moment',Ninter=2)
+<object of class ‘girfd_spatPomp’>
+> girf(b_model_with_accumvars,Np = 3,lookahead = 2, Nguide = 3,
++   kind = 'boot',Ninter=2)
+<object of class ‘girfd_spatPomp’>
+> 
+> # test girf when all particles fail...
+> # make this happen by setting a high tol
+> girf(b_girf_mom,tol=1000)
+<object of class ‘girfd_spatPomp’>
+> 
+> 
 > 
 > ## ------------------------------------------------------------
 > ## Now, we test the inference methods
@@ -197,6 +407,7 @@ Error : in ‘girf’: ‘Np’ must be a single positive integer
 > 
 > b_rw.sd <- rw_sd(rho=0.02,X1_0=ivp(0.02))
 > 
+> ##############################################################
 > ##
 > ## igirf on bm
 > ##
@@ -214,13 +425,13 @@ Error : in ‘girf’: ‘Np’ must be a single positive integer
 +   cooling.fraction.50 = 0.5,
 +   Np=Np,
 +   Ninter = 2,
-+   lookahead = 1,
-+   Nguide = 5,
++   lookahead = 2,
++   Nguide = 3,
 +   kind = 'moment',
 +   verbose = FALSE
 + )
-> paste("bm igirf loglik, geometric cooling, verbose=F: ",round(logLik(b_igirf_geom),10))
-[1] "bm igirf loglik, geometric cooling, verbose=F:  -9.9887892835"
+> paste("bm igirf loglik, geometric cooling, verbose=F: ",round(logLik(b_igirf_geom),5))
+[1] "bm igirf loglik, geometric cooling, verbose=F:  -12.80467"
 > 
 > set.seed(1)
 > b_igirf_geom_repeat <- igirf(b_igirf_geom,params=coef(b_model))
@@ -228,41 +439,190 @@ Error : in ‘girf’: ‘Np’ must be a single positive integer
 +   logLik(b_igirf_geom)==logLik(b_igirf_geom_repeat))
 [1] "check igirf on igirfd_spatPomp:  FALSE"
 > 
-> 
 > b_igirf_hyp <- igirf(b_model,
 +   Ngirf = 2,
 +   rw.sd = b_rw.sd,
 +   cooling.type = "hyperbolic",
 +   cooling.fraction.50 = 0.5,
-+   Np=floor(Np/2),
++   Np=3,
 +   Ninter = 2,
-+   lookahead = 1,
++   lookahead = 2,
 +   Nguide = floor(Np/2),
 +   kind = 'moment',
 +   verbose = TRUE
 + )
-igirf iteration 1 of 2 completed with likelihood  -11.56221 
-       rho      sigma        tau       X1_0       X2_0 
-0.39957108 1.00000000 1.00000000 0.01379269 0.00000000 
-igirf iteration 2 of 2 completed with likelihood  -10.59957 
-       rho      sigma        tau       X1_0       X2_0 
-0.40074887 1.00000000 1.00000000 0.04083778 0.00000000 
+igirf iteration 1 of 2 completed with likelihood  -10.98847 
+         rho        sigma          tau         X1_0         X2_0 
+ 0.405072584  1.000000000  1.000000000 -0.004536302  0.000000000 
+igirf iteration 2 of 2 completed with likelihood  -10.24179 
+        rho       sigma         tau        X1_0        X2_0 
+ 0.41413023  1.00000000  1.00000000 -0.01933633  0.00000000 
 > paste("bm igirf loglik, hyperbolic cooling, verbose=T: ",round(logLik(b_igirf_hyp),10))
-[1] "bm igirf loglik, hyperbolic cooling, verbose=T:  -10.599572921"
+[1] "bm igirf loglik, hyperbolic cooling, verbose=T:  -10.2417899687"
 > 
 > plot(b_igirf_geom) -> b_igirf_plot
 > head(b_igirf_plot$data)
   iteration  param       value
-2         2 loglik -10.8072342
-3         3 loglik  -9.9887893
+2         2 loglik -13.0919779
+3         3 loglik -12.8046689
 4         1    rho   0.4000000
-5         2    rho   0.4014437
-6         3    rho   0.3984085
+5         2    rho   0.4006886
+6         3    rho   0.3985569
 7         1  sigma   1.0000000
 > 
-> ##
+> set.seed(1)
+> b_igirf_boot_geom <- igirf(b_model,
++   Ngirf = 2,
++   rw.sd = b_rw.sd,
++   cooling.type = "geometric",
++   cooling.fraction.50 = 0.5,
++   Np=Np,
++   Ninter = 2,
++   lookahead = 1,
++   Nguide = 5,
++   kind = 'bootstrap',
++   verbose = FALSE
++ )
+> paste("bm igirf boot loglik, geometric cooling, verbose=F: ",round(logLik(b_igirf_boot_geom),10))
+[1] "bm igirf boot loglik, geometric cooling, verbose=F:  -13.0494777314"
+> 
+> b_igirf_boot_hyp <- igirf(b_model,
++   Ngirf = 2,
++   rw.sd = b_rw.sd,
++   cooling.type = "hyperbolic",
++   cooling.fraction.50 = 0.5,
++   Np=3,
++   Ninter = 2,
++   lookahead = 2,
++   Nguide = 3,
++   kind = 'bootstrap',
++   verbose = TRUE
++ )
+igirf iteration 1 of 2 completed with likelihood  -8.397624 
+        rho       sigma         tau        X1_0        X2_0 
+0.400592554 1.000000000 1.000000000 0.001354013 0.000000000 
+igirf iteration 2 of 2 completed with likelihood  -8.736799 
+       rho      sigma        tau       X1_0       X2_0 
+0.40039279 1.00000000 1.00000000 0.01068524 0.00000000 
+> paste("bm igirf boot loglik, hyperbolic cooling, verbose=T: ",round(logLik(b_igirf_hyp),10))
+[1] "bm igirf boot loglik, hyperbolic cooling, verbose=T:  -10.2417899687"
+> 
+> 
+> print("The following deliver an error message, to test it")
+[1] "The following deliver an error message, to test it"
+> try(igirf())
+Error : igirf: data is a required argument.
+> try(igirf(data="JUNK"))
+Error : igirf is undefined for ‘data’of class ‘character’.
+> try(igirf(b_igirf_boot_geom,Np=c(Inf)))
+Error : in ‘igirf’ : Error: ‘Np’ must be a single positive integer
+
+> igirf(b_igirf_boot_geom,Np=3)
+<object of class ‘igirfd_spatPomp’>
+> try(igirf(b_igirf_boot_geom,Np=NULL))
+Error : in ‘igirf’ : Error: ‘Np’ must be specified.
+
+> try(igirf(b_model_no_eunit_measure,kind='moment', Ngirf = 2, Nguide=2,
++   rw.sd = b_rw.sd, cooling.type = "hyperbolic", cooling.fraction.50 = 0.5,
++   Np=floor(Np/2), Ninter = 2))
+Error : in ‘igirf’ : Error in if (max_log_weights > -Inf) {: missing value where TRUE/FALSE needed
+
+In addition: Warning message:
+'eunit_measure' unspecified. 
+> try(igirf(b_model_no_vunit_measure,kind='moment', Ngirf = 2, Nguide=2,
++   rw.sd = b_rw.sd, cooling.type = "hyperbolic", cooling.fraction.50 = 0.5,
++   Np=floor(Np/2), Ninter = 2))
+Error : in ‘igirf’ : Error in if (max_log_weights > -Inf) {: missing value where TRUE/FALSE needed
+
+In addition: Warning message:
+'vunit_measure' unspecified. 
+> try(igirf(b_model_no_rprocess,kind='moment', Ngirf = 2, Nguide=2,
++   rw.sd = b_rw.sd, cooling.type = "hyperbolic", cooling.fraction.50 = 0.5,
++   Np=floor(Np/2), Ninter = 2))
+Error : in ‘igirf’ : Error: ‘rprocess’‘dmeasure’ are needed basic components.
+
+> 
+> try(igirf(b_model))
+Error : in ‘igirf’ : ‘Ngirf’ is a required argument
+> try(igirf(b_model,Ngirf=2))
+Error : in ‘igirf’ : ‘rw.sd’ must be specified.
+> try(igirf(b_model,Ngirf=2,rw.sd=b_rw.sd))
+Error : in ‘igirf’ : ‘cooling.fraction.50’ is a required argument.
+> try(igirf(b_model,Ngirf=2,rw.sd=b_rw.sd,cooling.fraction.50=0.5))
+Error : in ‘igirf’ : ‘cooling.type’ is a required argument.
+> try(igirf(b_model,Ngirf=2,rw.sd=b_rw.sd,cooling.fraction.50=0.5,
++   cooling.type="geometric"))
+Error : in ‘igirf’ : ‘Np’ must be specified.
+> try(igirf(b_model,Ngirf=2,rw.sd=b_rw.sd,cooling.fraction.50=0.5,
++   cooling.type="geometric",Np=4))
+Error : in ‘igirf’ : ‘Nguide’ must be specified.
+> try(igirf(b_model,Ngirf=2,rw.sd=b_rw.sd,cooling.fraction.50=0.5,
++   cooling.type="geometric",Np="JUNK",Nguide=4))
+Error : in ‘igirf’ : Error: ‘Np’ must be a single positive integer
+
+> try(igirf(b_model,Ngirf="JUNK",rw.sd=b_rw.sd,cooling.fraction.50=0.5,
++   cooling.type="geometric",Np=3,Nguide=4))
+Error : in ‘igirf’ : Error: ‘Ngirf’ must be a positive integer.
+
+> try(igirf(b_model,Ngirf=2,rw.sd=b_rw.sd,cooling.fraction.50=1000,
++   cooling.type="geometric",Np=3,Nguide=4))
+Error : in ‘igirf’ : Error: ‘cooling.fraction.50’ must be in (0,1].
+
+> 
+> try(igirf(b_model,kind="moment",Ngirf=2,rw.sd=b_rw.sd,cooling.fraction.50=0.5,cooling.type="geometric",Np=3,Nguide=4,tol=-1))
+Error : in ‘igirf’ : Error: in ‘igirf’ (method=moment) : ‘tol’ should be a small positive number.
+
+> 
+> 
+> igirf(b_igirf_boot_geom,Np=3,
++   .paramMatrix=cbind(coef(b_model),coef(b_model),coef(b_model)))
+<object of class ‘igirfd_spatPomp’>
+> try(igirf(b_igirf_boot_geom,Np=function(x) 4))
+Error : in ‘igirf’ : Error: ‘Np’ must be a single positive integer
+
+> try(igirf(b_igirf_boot_geom,Np=function(x) "JUNK"))
+Error : in ‘igirf’ : Error: ‘Np’ must be a single positive integer
+
+> try(igirf(b_igirf_boot_geom,Np=5:15))
+Error : in ‘igirf’ : Error: ‘Np’ must be a single positive integer
+
+> try(igirf(b_igirf_boot_geom,tol=-1))
+Error : in ‘igirf’ : Error: in ‘igirf’ (method=bootstrap) : ‘tol’ should be a small positive number.
+
+> 
+> 
+> igirf(b_model_with_accumvars,kind='moment', Ngirf = 2, Nguide=2,
++   rw.sd = b_rw.sd, cooling.type = "hyperbolic", cooling.fraction.50 = 0.5,
++   Np=3, Ninter = 1)
+<object of class ‘igirfd_spatPomp’>
+> igirf(b_model_with_accumvars,kind='boot', Ngirf = 2, Nguide=2,
++   rw.sd = b_rw.sd, cooling.type = "hyperbolic", cooling.fraction.50 = 0.5,
++   Np=3, Ninter = 1)
+<object of class ‘igirfd_spatPomp’>
+> 
+> igirf(b_model_zero_dmeasure,kind='moment', Ngirf = 2, Nguide=2,
++   rw.sd = b_rw.sd, cooling.type = "hyperbolic", cooling.fraction.50 = 0.5,
++   Np=3, Ninter = 1)
+<object of class ‘igirfd_spatPomp’>
+Warning messages:
+1: In igirf.momgirf(object = object, Ninter = Ninter, Nguide = Nguide,  :
+  igirf_moment: filtering failure at last filter iteration; using unweighted mean for point estimate.
+2: In igirf.momgirf(object = object, Ninter = Ninter, Nguide = Nguide,  :
+  igirf_moment: filtering failure at last filter iteration; using unweighted mean for point estimate.
+> igirf(b_model_zero_dmeasure,kind='boot', Ngirf = 2, Nguide=2,
++   rw.sd = b_rw.sd, cooling.type = "hyperbolic", cooling.fraction.50 = 0.5,
++   Np=3, Ninter = 1)
+<object of class ‘igirfd_spatPomp’>
+Warning messages:
+1: in ‘ibootgirf’: filtering failure at last filter iteration; using unweighted mean for point estimate. 
+2: in ‘ibootgirf’: filtering failure at last filter iteration; using unweighted mean for point estimate. 
+> 
+> 
+> ## ----------------------------------------------------------
 > ## ienkf on bm, with geometric and hyperbolic cooling
-> ##
+> ## __________________________________________________________
+> 
+> set.seed(55)
 > 
 > b_ienkf_geom <- ienkf(b_model,
 +   Nenkf=2,
@@ -273,7 +633,7 @@ igirf iteration 2 of 2 completed with likelihood  -10.59957
 +   verbose=FALSE
 + )
 > paste("bm ienkf loglik, geometric cooling, verbose=F: ",round(logLik(b_ienkf_geom),10))
-[1] "bm ienkf loglik, geometric cooling, verbose=F:  -11.2659371179"
+[1] "bm ienkf loglik, geometric cooling, verbose=F:  -15.6258716527"
 > 
 > b_ienkf_hyp <- ienkf(b_model,
 +   Nenkf=2,
@@ -285,17 +645,45 @@ igirf iteration 2 of 2 completed with likelihood  -10.59957
 + )
 ienkf iteration 1 of 2 completed
 ienkf iteration 2 of 2 completed
-> paste("bm ienkf loglik, hyperbolic cooling, verbose=T: ",round(logLik(b_ienkf_hyp),10))
-[1] "bm ienkf loglik, hyperbolic cooling, verbose=T:  -10.4969604389"
 > 
-> ##
+> paste("bm ienkf loglik, hyperbolic cooling, verbose=T: ",round(logLik(b_ienkf_hyp),10))
+[1] "bm ienkf loglik, hyperbolic cooling, verbose=T:  -12.8788856955"
+> 
+> ## test error messages for ienkf
+> try(ienkf(b_model_no_rprocess))
+Error : in ‘ienkf’: ‘rprocess’, ‘eunit_measure’, ‘vunit_measure’ are needed basic components.
+> try(ienkf(b_model, Nenkf="JUNK"))
+Error : in ‘ienkf’: ‘Nenkf’ must be a positive integer.
+> ienkf(b_model,Nenkf=2,Np = 3,rw.sd=b_rw.sd,cooling.type="geometric",
++   cooling.fraction.50 = 0.5,
++   .paramMatrix=cbind(coef(b_model),coef(b_model),coef(b_model)))
+<object of class ‘ienkfd_spatPomp’>
+> try(ienkf(b_model,Nenkf=2))
+Error : in ‘ienkf’: argument "Np" is missing, with no default
+> try(ienkf(b_model,Nenkf=2,Np=NULL))
+Error : in ‘ienkf’: ‘Np’ must be specified.
+> try(ienkf(b_model,Nenkf=2,Np="JUNK"))
+Error : in ‘ienkf’: ‘Np’ must be a number or a vector of numbers
+> try(ienkf(b_model,Nenkf=2,Np = 3))
+Error : in ‘ienkf’: ‘rw.sd’ must be specified!
+> try(ienkf(b_model,Nenkf=2,Np = 3,rw.sd=b_rw.sd))
+Error : in ‘ienkf’: ‘cooling.fraction.50’ is a required argument.
+> try(ienkf(b_model,Nenkf=2,Np = 3,rw.sd=b_rw.sd,cooling.fraction.50 = 1000))
+Error : in ‘ienkf’: ‘cooling.fraction.50’ must be in (0,1].
+> try(ienkf(b_model,Nenkf=2,Np = 3,rw.sd=b_rw.sd,cooling.fraction.50 = 0.5,.indices=1:1000))
+Error : in ‘ienkf’: ‘.indices’ for ancestor tracking is not supported.
+> 
+> 
+> ## ---------------------------------------------------------------
 > ## iubf on bm, with geometric and hyperbolic cooling
-> ##
+> ## _______________________________________________________________
+> 
+> set.seed(8)
 > 
 > b_iubf_geom <- iubf(b_model,
 +   Nubf = 2,
-+   Nrep_per_param = floor(Np/2),
-+   Nparam = floor(Np/2),
++   Nrep_per_param = 3,
++   Nparam = 3,
 +   nbhd = b_bag_nbhd,
 +   prop = 0.8,
 +   rw.sd =b_rw.sd,
@@ -304,12 +692,12 @@ ienkf iteration 2 of 2 completed
 +   verbose=FALSE
 + )
 > paste("bm iubf loglik, geometric cooling, verbose=F: ",round(logLik(b_iubf_geom),10))
-[1] "bm iubf loglik, geometric cooling, verbose=F:  -11.4595005548"
+[1] "bm iubf loglik, geometric cooling, verbose=F:  -13.4740690865"
 > 
 > b_iubf_hyp <- iubf(b_model,
 +   Nubf = 2,
-+   Nrep_per_param = floor(Np/2),
-+   Nparam = floor(Np/2),
++   Nrep_per_param = 3,
++   Nparam = 3,
 +   nbhd = b_bag_nbhd,
 +   prop = 0.8,
 +   rw.sd =b_rw.sd,
@@ -320,56 +708,102 @@ ienkf iteration 2 of 2 completed
 + )
 working on observation times  1  in iteration  1 
 working on observation times  2  in iteration  1 
-iubf iteration 1 of 2 completed with log-likelihood -12.04241 
-        rho       sigma         tau        X1_0        X2_0 
- 0.40312565  1.00000000  1.00000000 -0.01326395  0.00000000 
+iubf iteration 1 of 2 completed with log-likelihood -10.44755 
+       rho      sigma        tau       X1_0       X2_0 
+0.39857134 1.00000000 1.00000000 0.00917446 0.00000000 
 working on observation times  1  in iteration  2 
 working on observation times  2  in iteration  2 
-iubf iteration 2 of 2 completed with log-likelihood -12.83948 
-        rho       sigma         tau        X1_0        X2_0 
- 0.40523197  1.00000000  1.00000000 -0.00474667  0.00000000 
-> paste("bm ienkf loglik, hyperbolic cooling, verbose=T: ",round(logLik(b_iubf_hyp),10))
-[1] "bm ienkf loglik, hyperbolic cooling, verbose=T:  -12.8394821627"
+iubf iteration 2 of 2 completed with log-likelihood -9.477666 
+       rho      sigma        tau       X1_0       X2_0 
+0.38932595 1.00000000 1.00000000 0.02563298 0.00000000 
+> paste("bm iubf loglik, hyperbolic cooling, verbose=T: ",round(logLik(b_iubf_hyp),10))
+[1] "bm iubf loglik, hyperbolic cooling, verbose=T:  -9.477665891"
+> 
+> try(iubf(b_model))
+Error : in ‘iubf’: ‘Nubf’ must be specified
+> try(iubf(b_model,Nubf=-1))
+Error : in ‘iubf’: ‘Nubf’ must be a positive integer
+> try(iubf(b_model,Nubf=2))
+Error : in ‘iubf’: number of replicates, ‘Nrep_per_param’, must be specified
+> try(iubf(b_model,Nubf=2,Nrep_per_param=3))
+Error : in ‘iubf’: ‘rw.sd’ must be specified
+> try(iubf(b_model,Nubf=2,Nrep_per_param=3,rw.sd=b_rw.sd))
+Error : in ‘iubf’: ‘cooling.fraction.50’ must be specified
+> try(iubf(b_model,Nubf=2,Nrep_per_param=3,rw.sd=b_rw.sd,cooling.fraction.50=1000))
+Error : in ‘iubf’: ‘nbhd’ must be specified
+> try(iubf(b_model,Nubf=2,Nrep_per_param=3,rw.sd=b_rw.sd,cooling.fraction.50=0.5))
+Error : in ‘iubf’: ‘nbhd’ must be specified
+> try(iubf(b_model,Nubf=2,Nrep_per_param=3,rw.sd=b_rw.sd,cooling.fraction.50=0.5,nbhd=b_bag_nbhd))
+Error : in ‘iubf’: ‘Nparam’ must be specified
+> try(iubf(b_model,Nubf=2,Nrep_per_param=3,rw.sd=b_rw.sd,cooling.fraction.50=0.5,nbhd=b_bag_nbhd,Nparam=3))
+Error : in ‘iubf’: ‘prop’ must be specified
+> try(iubf(b_model,Nubf=2,Nrep_per_param=1,rw.sd=b_rw.sd,cooling.fraction.50=0.5,Nparam=3,nbhd=b_bag_nbhd))
+Error : in ‘iubf’: ‘prop’ must be specified
+> try(iubf(b_model,Nubf=2,Nrep_per_param=1,rw.sd=b_rw.sd,cooling.fraction.50=1000,Nparam=3,nbhd=b_bag_nbhd,prop=0.8))
+Error : in ‘iubf’: ‘cooling.fraction.50’ must be in (0,1]
+> 
+> ## max_lookback is not triggered for b_model with N=2
+> iubf(b_model5,Nubf=2, Nparam = 3,Nrep_per_param=3,nbhd=b_bag_nbhd,rw.sd=b_rw.sd,cooling.fraction.50=0.5,prop=0.8)
+<object of class ‘iubfd_spatPomp’>
+> 
+> ## trigger situations where neighborhood is not contemporaneous
+> iubf(b_model5,Nubf=2, Nparam = 3,Nrep_per_param=3,nbhd=b_bag_nbhd_lookback1,rw.sd=b_rw.sd,cooling.fraction.50=0.5,prop=0.8)
+<object of class ‘iubfd_spatPomp’>
+> iubf(b_model5,Nubf=2, Nparam = 3,Nrep_per_param=3,nbhd=b_bag_nbhd_lookback2,rw.sd=b_rw.sd,cooling.fraction.50=0.5,prop=0.8)
+<object of class ‘iubfd_spatPomp’>
+> 
+> try(iubf(b_model5,Nubf=2, Nparam = 2,Nrep_per_param=3,nbhd=b_bag_nbhd,rw.sd=b_rw.sd,cooling.fraction.50=0.5,prop=0.8))
+Error : in ‘iubf’: ‘Nparam’ must be at least 3
 > 
 > ## --------------------------------------------
 > ## using bm to test simulate and plot
 > ## ____________________________________________
 > 
+> set.seed(9)
+> 
 > b_sim1 <- simulate(b_model,nsim=2,format='data.frame')
 > head(b_sim1,10)
 # A tibble: 8 × 5
-   time .id   unitname      X       Y
-  <dbl> <ord> <chr>     <dbl>   <dbl>
-1     1 1     U1       -1.12  -0.918 
-2     1 2     U1       -0.670 -0.945 
-3     1 1     U2       -1.07  -0.409 
-4     1 2     U2       -0.648 -1.24  
-5     2 1     U1       -2.81  -4.87  
-6     2 2     U1        0.850  0.589 
-7     2 1     U2       -1.26  -1.96  
-8     2 2     U2       -0.491 -0.0759
+   time .id   unitname      X      Y
+  <dbl> <ord> <chr>     <dbl>  <dbl>
+1     1 1     U1        0.399  0.513
+2     1 2     U1        1.00   1.16 
+3     1 1     U2       -0.549 -1.60 
+4     1 2     U2       -0.483  0.817
+5     2 1     U1        0.147 -1.01 
+6     2 2     U1        1.37   2.17 
+7     2 1     U2       -1.31  -1.09 
+8     2 2     U2       -0.806 -1.54 
 > b_sim2 <- simulate(b_model,nsim=2,format='data.frame',include.data=TRUE)
 > head(b_sim2,10)
 # A tibble: 10 × 5
-    time .id   unitname      X      Y
-   <dbl> <ord> <chr>     <dbl>  <dbl>
- 1     1 data  U1        2.98   3.61 
- 2     1 1     U1       -0.827 -1.76 
- 3     1 2     U1        0.417  3.17 
- 4     1 data  U2        0.824  2.81 
- 5     1 1     U2       -0.228 -0.282
- 6     1 2     U2       -0.158 -1.84 
- 7     2 data  U1        2.03   1.73 
- 8     2 1     U1        0.164 -0.282
- 9     2 2     U1       -0.270  0.730
-10     2 data  U2       -0.759 -0.849
+    time .id   unitname       X      Y
+   <dbl> <ord> <chr>      <dbl>  <dbl>
+ 1     1 data  U1        2.98    3.61 
+ 2     1 1     U1       -0.713   1.09 
+ 3     1 2     U1        0.0866 -1.34 
+ 4     1 data  U2        0.824   2.81 
+ 5     1 1     U2       -0.263  -0.680
+ 6     1 2     U2       -0.616  -0.946
+ 7     2 data  U1        2.03    1.73 
+ 8     2 1     U1        0.352  -0.702
+ 9     2 2     U1       -2.31   -3.44 
+10     2 data  U2       -0.759  -0.849
 > b_sim3 <- simulate(b_model,nsim=2,format='spatPomps')
 > 
+> png(filename="bm-%02d.png",res=100)
 > plot(b_model,type="l",log=FALSE)
 > b_sim3v2 <- b_sim3[[1]]
 > b_sim3v2@data <- exp(b_sim3v2@data)
 > plot(b_sim3v2,type="l",log=TRUE)
-> plot(b_sim3[[2]],type="h")
+> plot(b_sim3[[2]],type="h",plot_unit_names=FALSE)
+> dev.off()
+null device 
+          1 
+> plot(b_sim3[[2]],type="h",plot_unit_names=TRUE) -> b_sim3_plot
+> 
+> print(b_model)
+<object of class ‘spatPomp’>
 > 
 > ## --------------------------------------------
 > ## using bm to test spatPomp workhorse functions, extending pomp:
@@ -434,24 +868,26 @@ rep         [,1]
 
         rep
 variable     [,1]
-      Y1 1.181054
+      Y1 1.505094
 
 > 
 > vec_rmeasure(b_model,x=b_s,time=1, params=b_p)
 , , 1
 
            [,1]
-[1,]  0.8543340
-[2,] -0.5666138
+[1,]  0.4213165
+[2,] -1.7230998
 
-> 
-> ## --------------------------------------------
-> ## using bm to test edge cases and utility functions
-> ## perhaps only of technical interest
-> ## ____________________________________________
-> 
-> print(b_model)
-<object of class ‘spatPomp’>
+> b_p_3d <- b_p
+> dim(b_p_3d) <- c(5,1,1)
+> dimnames(b_p_3d) <- c(dimnames(b_p),NULL)
+> vec_rmeasure(b_model,x=b_s,time=1, params=b_p_3d)
+, , 1
+
+            [,1]
+[1,] -0.05396116
+[2,] -0.03157348
+
 > 
 > # check how u is treated by dunit_measure, runit_measure, eunit_measure,
 > # vunit_measure and munit_measure. this should output unit-1 to
@@ -479,7 +915,8 @@ unit   [,1]
 unit   [,1]
   [1,]    1
 
-> munit_measure(b_u, x=b_s, vc=b_vc, Np=1, unit = 2, time=1,params=b_array.params)
+> munit_measure(b_u, x=b_s, vc=b_vc, Np=1, unit = 2, time=1,
++   params=b_array.params)
 , , 1, 1
 
        
@@ -502,12 +939,132 @@ variable [,1]
       Y1    1
 
 > 
-> dev.off()
-null device 
-          1 
+> ## -------------------------------------------------------------
+> ## test edge behaviors of basic components  
+> ## _____________________________________________________________
+> 
+> dmeasure(b_model_zero_dmeasure,x=states(b_model))
+      time
+.id    [,1] [,2]
+  [1,]    0    0
+> 
+> dmeasure(b_model_zero_dmeasure,x=states(b_model),log=T)
+      time
+.id    [,1] [,2]
+  [1,] -Inf -Inf
+> 
+> vec_dmeasure(b_model_zero_dmeasure,y=obs(b_model_zero_dmeasure),
++   x=states(b_model),units=1:U,
++   times=1:2,params=coef(b_model_zero_dmeasure),log=T)[,,1]
+     [,1] [,2]
+[1,] -Inf -Inf
+[2,] -Inf -Inf
+> 
+> ## trigger error messages in dunit_measure.c
+> dunit_measure(b_model_no_dunit_measure, y=b_y,
++   x=b_s, unit=1, time=1, params=b_p)
+      time
+rep    [,1]
+  [1,]   NA
+Warning message:
+'dunit_measure' unspecified: likelihood undefined. 
+> try(dunit_measure(b_model, y=b_y,
++   x=b_s, unit=1, time=1:10, params=b_p))  
+Error : length of 'times' and 2nd dimension of 'y' do not agree.
+> b_s2 <- 1:6
+> dim(b_s2) <- c(2,3,1)
+> b_s3 <- 1:6
+> dim(b_s3) <- c(1,3,2)
+> dimnames(b_s2) <- list(variable=dimnames(states(b_model))[[1]], rep=NULL)
+> b_p2 <- c(coef(b_model),coef(b_model))
+> dim(b_p2) <- c(length(coef(b_model)),2)
+> dimnames(b_p2) <- list(param=names(coef(b_model)))
+> try(dunit_measure(b_model, y=b_y, x=b_s2, unit=1, time=1, params=b_p2))
+Error : larger number of replicates is not a multiple of smaller.
+> try(dunit_measure(b_model, y=b_y, x=b_s3, unit=1, time=1, params=b_p2))
+Error : length of 'times' and 3rd dimension of 'x' do not agree.
+> 
+> ## trigger error messages in runit_measure.c
+> runit_measure(b_model_no_runit_measure, x=b_s, unit=2, time=1, params=b_p)
+, , 1
+
+        rep
+variable [,1]
+      Y1   NA
+
+Warning message:
+'runit_measure' unspecified: NAs generated. 
+> try(runit_measure(b_model_no_runit_measure, x=b_s, unit=2, time=numeric(0), params=b_p))
+Error : length('times') = 0, no work to do.
+> try(runit_measure(b_model_no_runit_measure, x=b_s, unit=2, time=1:10, params=b_p))
+Error : length of 'times' and 3rd dimension of 'x' do not agree.
+> try(runit_measure(b_model_no_runit_measure, x=b_s2, unit=2, time=1,params=b_p2))
+Error : larger number of replicates is not a multiple of smaller.
+> 
+> ## trigger error messages in vunit_measure.c
+> vunit_measure(b_model_no_vunit_measure, x=b_s, unit=2, time=1, params=b_p)
+, , 1
+
+      rep
+unit   [,1]
+  [1,]   NA
+
+Warning message:
+'vunit_measure' unspecified. 
+> try(vunit_measure(b_model, x=b_s, unit=2, time=1:10, params=b_p))
+Error : length of 'times' and 3rd dimension of 'x' do not agree.
+> try(vunit_measure(b_model, x=b_s2, unit=2, time=1, params=b_p2))
+Error : larger number of replicates is not a multiple of smaller.
+> try(vunit_measure(b_model, x=b_s3, unit=2, time=1, params=b_p2))
+Error : length of 'times' and 3rd dimension of 'x' do not agree.
+> 
+> ## trigger error messages in eunit_measure.c
+> eunit_measure(b_model_no_eunit_measure, x=b_s, unit=2, time=1, params=b_p)
+, , 1
+
+      rep
+unit   [,1]
+  [1,]   NA
+
+Warning message:
+'eunit_measure' unspecified. 
+> try(eunit_measure(b_model, x=b_s, unit=2, time=1:10, params=b_p))
+Error : length of 'times' and 3rd dimension of 'x' do not agree.
+> try(eunit_measure(b_model, x=b_s2, unit=2, time=1, params=b_p2))
+Error : larger number of replicates is not a multiple of smaller.
+> 
+> ## trigger error messages in munit_measure.c
+> munit_measure(b_model_no_munit_measure, x=b_s, vc=b_vc, Np=1, unit = 2, time=1, params=b_array.params)
+, , 1, 1
+
+       
+params  [,1]
+  rho    0.4
+  sigma  1.0
+  tau    1.0
+  X1_0   0.0
+  X2_0   0.0
+
+Warning message:
+'munit_measure' unspecified. 
+> try(munit_measure(b_model, x=b_s, vc=b_vc, Np=1, unit = 2, time=1:10,params=b_array.params))
+Error : length of 'times' and 3rd dimension of 'x' do not agree.
+> b_array.params2 <- array(c(b_p,b_p),
++   dim = c(length(b_p),length(unit_names(b_model)), 2, 1),
++   dimnames = list(params = rownames(b_p)))
+> try(munit_measure(b_model, x=b_s2, vc=b_vc, Np=3, unit = 2, time=1,params=b_array.params2))
+Error : larger number of replicates is not a multiple of smaller.
+> 
+> ## trigger error messages in fcstsampvar.c
+> try(.Call("do_fcst_samp_var",b_model,b_s,3,1:10,b_array.params,FALSE))
+Error : length of 'times' and 3rd dimension of 'x' do not agree.
+> try(.Call("do_fcst_samp_var",b_model,b_s2,3,1,b_array.params2,FALSE))
+Error : larger number of replicates is not a multiple of smaller.
+> 
 > 
 > ## test spatPomp_Csnippet variable construction
-> spatPomp_Csnippet("lik=u;",unit_statenames="A",unit_obsnames=c("B","C"), unit_covarnames="D",
+> spatPomp_Csnippet("lik=u;",unit_statenames="A",unit_obsnames=c("B","C"),
++   unit_covarnames="D",
 +   unit_ivpnames="E",unit_paramnames="F",unit_vfnames="G")
 An object of class "Csnippet"
 Slot "text":
@@ -519,73 +1076,121 @@ Slot "text":
 > ## ____________________________________________
 > 
 > b_rep1 <- spatPomp(b_model,params=coef(b_model))
-> for(slt in slotNames(b_model)) if(!identical(slot(b_model,slt),slot(b_rep1,slt))) print(slt)
+> for(slt in slotNames(b_model)) if(!identical(slot(b_model,slt),
++   slot(b_rep1,slt))) print(slt)
 [1] "states"
-> 
-> # test an error message
-> print("The following delivers an error message, to test it")
-[1] "The following delivers an error message, to test it"
-> try(spatPomp(data=as.data.frame(b_model),units=NULL),outFile=stdout())
-Error in value[[3L]](cond) : 
-  ‘times’ should be a single name identifying the column of data that represents the observation times. ‘units’ should be likewise for column that represents the observation units.
 > 
 > # test parameter replacement
 > b_rep2 <- spatPomp(b_model,params=coef(b_model)+1)
 > if(!identical(coef(b_rep2),coef(b_model)+1)) stop('problem with parameter replacement')
 > 
-> ## -----------------------------------------------------------------
-> ## using bm to test behavior of inference methods when logLik = -Inf
-> ## _________________________________________________________________
+> # test do-nothing behavior
+> b_rep3 <- spatPomp(b_model)
+> 
+> ## --------------------------------------------
+> ## using bm to test spatPomp() warning messages
+> ## ____________________________________________
+> 
+> print("The following deliver error messages, to test them")
+[1] "The following deliver error messages, to test them"
+> try(spatPomp(data=as.data.frame(b_model),units=NULL),outFile=stdout())
+Error : in spatPomp : ‘times’ should be a single name identifying the column of data that represents the observation times. ‘units’ should be likewise for column that represents the observation units.
+> try(spatPomp("test on type character"))
+Error : in ‘spatPomp’: ‘data’ must be a data frame or an object of class ‘spatPomp’.
+> 
+> try(spatPomp())
+Error : in ‘spatPomp’: ‘data’ is a required argument
+> b_data <- as.data.frame(b_model)
+> try(spatPomp(data=b_data,times="time",units="unit"))
+Error : in ‘spatPomp’: ‘t0’ is a required argument
+> try(spatPomp(data=b_data,times="NONSENSE",units="unit",t0=0))
+Error : in ‘spatPomp’: ‘times’ does not identify a single column of ‘data’ by name.
+> try(spatPomp(data=b_data,times="time",units="NONSENSE",t0=0))
+Error : in ‘spatPomp’: ‘units’ does not identify a single column of ‘data’ by name.
+> spatPomp(data=b_data,times="time",units="unit",t0=0,
++   params=list(coef(b_model)))
+<object of class ‘spatPomp’>
+> b_data2 <- b_data
+> names(b_data2) <- c("time","unit","X","X")
+> try(spatPomp(data=b_data2,times="time",units="unit"))
+Error : in ‘spatPomp’: names of data variables must be unique.
+> b_data_only_model <- spatPomp(data=b_data,times="time",units="unit",
++   t0=0)
+> 
+> # test error messages for covariates with data.frame class for spatPomp()
+> b_covar_error <- data.frame(time_name_error=0:2,Z=3:5)
+> try(spatPomp(data=b_data,times="time",units="unit",t0=0,
++   covar=b_covar_error))
+Error : in ‘spatPomp’: ‘covariate’ data.frame should have a time column with the same name as the time column of the observation data.frame
+> 
+> b_unit_covar_names_error <- data.frame(time=c(0:2,0:2),
++   JUNK=rep(c("U1","U2"),each=3), Z=rep(3:5,times=2))
+> try(spatPomp(data=b_data,times="time",units="unit",t0=0,
++   covar=b_unit_covar_names_error))
+Error : in ‘spatPomp’: for unit-specific covariates, there should be a column with the unit name matching the data
+> 
+> b_shared_covar <- data.frame(time=0:2,Z=3:5)
+> model_shared_covar <- spatPomp(data=b_data,times="time",units="unit",
++   t0=0,covar=b_shared_covar, shared_covarnames="Z")
+> try(as.data.frame(model_shared_covar))
+Error in asMethod(object) : 
+  in ‘as.data.frame’ : shared covariates are not yet fully implemented in spatPomp
+> 
+> b_unit_covar <- data.frame(time=c(0:2,0:2),unit=rep(c("U1","U2"),each=3),
++   Z=rep(3:5,times=2))
+> model_unit_covar <- spatPomp(data=b_data,times="time",units="unit",
++   t0=0,covar=b_unit_covar,skeleton=NULL,partrans=NULL,
++   unit_accumvars = "JUNK")
+> 
+> try(spatPomp(data=b_data,times="time",units="unit",t0=0,
++   covar=b_unit_covar,shared_covarnames ="JUNK"))
+Error : in ‘spatPomp’: ‘shared_covarnames’ currently supported only when there are no unit-specific covariates
+> 
+> # test spatPomp warnings with argument of class spatPomp
+> 
+> # perhaps surprisingly, this gives no error
+> spatPomp(model_unit_covar,timename="JUNK",unitname="JUNK",
++   unit_accumvars="JUNK", globals=Csnippet("JUNK"),
++   partrans=NULL,skeleton=NULL)
+<object of class ‘spatPomp’>
+>   
+> try(spatPomp(data=model_unit_covar,covar=b_covar_error))
+Error : in ‘spatPomp’: ‘covariate’ data.frame should have a time column with the same name as the time column of the observation data.frame
+> 
+> spatPomp(model_shared_covar)
+<object of class ‘spatPomp’>
+> 
+> spatPomp(data=model_shared_covar,covar=b_shared_covar,
++   shared_covarnames="Z")
+<object of class ‘spatPomp’>
+> 
+> spatPomp(data=model_unit_covar,covar=b_unit_covar)
+<object of class ‘spatPomp’>
+> 
+> try(spatPomp(data=model_unit_covar,covar=b_shared_covar))
+Error : in ‘spatPomp’: for unit-specific covariates, there should be a column with the unit name matching the data
+> 
+> try(spatPomp(data=model_unit_covar,covar=b_unit_covar,
++   shared_covarnames="Z"))
+Error : in ‘spatPomp’: ‘shared_covarnames’ currently supported only when there are no unit-specific covariates
 > 
 > 
-> b_inf <- spatPomp(b_model,
-+   dmeasure = spatPomp_Csnippet(
-+     method="dmeasure",
-+     unit_statenames="X",
-+     unit_obsnames="Y",
-+     code = "
-+       lik=0;
-+       if(give_log) lik = log(lik);
-+     "
-+   ),
-+   dunit_measure = spatPomp_Csnippet("
-+     lik = 0;
-+     if(give_log) lik = log(lik);
-+   ")
-+ )
+> ## --------------------------------------------
+> ## test utility functions
+> ## ____________________________________________
 > 
-> dmeasure(b_inf,x=states(b_model))
-      time
-.id    [,1] [,2]
-  [1,]    0    0
+> spatPomp:::undefined()
+[1] NA
+> spatPomp:::undefined(NULL)
+[1] TRUE
+> spatPomp:::undefined("JUNK")
+[1] NA
 > 
-> dmeasure(b_inf,x=states(b_model),log=T)
-      time
-.id    [,1] [,2]
-  [1,] -Inf -Inf
+> .Call("spatPomp_systematic_resampling",c(0.1,0.2),2)
+[1] 2 2
+> try(.Call("spatPomp_systematic_resampling",c(-0.1,-0.2),2))
+Error : in 'systematic_resampling': non-positive sum of weights
 > 
-> vec_dmeasure(b_inf,y=obs(b_inf),x=states(b_model),units=1:U,times=1:2,params=coef(b_inf),log=T)[,,1]
-     [,1] [,2]
-[1,] -Inf -Inf
-[2,] -Inf -Inf
-> 
-> b_girf_mom_inf <- girf(b_inf,Np = floor(Np/2),lookahead = 1,
-+   Nguide = floor(Np/2),
-+   kind = 'moment',Ninter=2)
-> paste("bm moment girf loglik, zero measurement: ",round(logLik(b_girf_mom_inf),10))
-[1] "bm moment girf loglik, zero measurement:  -Inf"
-> 
-> set.seed(0)
-> b_girf_boot_inf <- girf(b_inf,Np = floor(Np/2),lookahead = 1,
-+   Nguide = floor(Np/2),
-+   kind = 'bootstrap',Ninter=2)
-> paste("bm bootstrap girf loglik, zero measurement: ",round(logLik(b_girf_boot_inf),10))
-[1] "bm bootstrap girf loglik, zero measurement:  -Inf"
-> 
-> set.seed(5)
-> b_bpfilter_inf <- bpfilter(b_inf, Np = Np, block_size = 1)
-> paste("bm bpfilter loglik, zero measurement: ",round(logLik(b_bpfilter_inf),10))
-[1] "bm bpfilter loglik, zero measurement:  NaN"
 > 
 > 
 > 

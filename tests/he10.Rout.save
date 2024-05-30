@@ -1,7 +1,7 @@
 
-R version 4.2.3 (2023-03-15) -- "Shortstop Beagle"
-Copyright (C) 2023 The R Foundation for Statistical Computing
-Platform: x86_64-apple-darwin17.0 (64-bit)
+R version 4.4.0 (2024-04-24) -- "Puppy Cup"
+Copyright (C) 2024 The R Foundation for Statistical Computing
+Platform: aarch64-apple-darwin20
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
@@ -57,10 +57,19 @@ Loading required package: pomp
 +   estParNames <- c(sharedParNames,unitParNames)
 + }
 > 
-> # Note: here we assume that there are no unestimated unit-specific
-> # parameters. That could readily be accommodated if needed.
+> ## test error messages
+> try(he10(U=5,towns_selected="JUNK"))
+Error in he10(U = 5, towns_selected = "JUNK") : 
+  Require U==length(towns_selected) when towns_selected is specified
+> try(he10(U=1000,towns_selected=1:1000))
+Error in he10(U = 1000, towns_selected = 1:1000) : U <= 20
+> try(he10(U=5,Tmax=2024))
+Error in he10(U = 5, Tmax = 2024) : Tmax <= 1964
 > 
-> h_model <- he10(U=2,dt=4/365,Tmax=1950.5,
+> ## Note: here we assume that there are no unestimated unit-specific
+> ## parameters. That could readily be accommodated if needed.
+> 
+> h_model <- he10(U=2,dt=4/365,Tmax=1950.1,
 +   expandedParNames=estParNames)
 > 
 > coef(h_model)
@@ -73,8 +82,10 @@ amplitude1 amplitude2   sigmaSE1   sigmaSE2       rho1       rho2       S_01
       S_02       E_01       E_02       I_01       I_02 
    3.2e-02    5.0e-05    5.0e-05    4.0e-05    4.0e-05 
 > 
-> paste("bpfilter logLik for he10 model:",logLik(bpfilter(h_model,Np=10,block_size=1)))
-[1] "bpfilter logLik for he10 model: -3827.56515459983"
+> h_bpfilter <- bpfilter(h_model,Np=10,block_size=1)
+> 
+> paste("bpfilter logLik for he10 model:",logLik(h_bpfilter))
+[1] "bpfilter logLik for he10 model: -2110.11342383345"
 > 
 > 
 > h_U <- length(unit_names(h_model))
@@ -102,6 +113,7 @@ amplitude1 amplitude2   sigmaSE1   sigmaSE2       rho1       rho2       S_01
 > block_list = split(all_units, sort(all_units %% nblocks))
 > block_list <- lapply(block_list, as.integer)
 > 
+> set.seed(3)
 > h_ibpf <- ibpf(h_model,
 +   params=coef(h_model),
 +   sharedParNames=sharedParNames,
@@ -114,29 +126,182 @@ amplitude1 amplitude2   sigmaSE1   sigmaSE2       rho1       rho2       S_01
 +   block_list=block_list
 + )
 > 
-> paste("ibpf logLik for he10 model:",logLik(bpfilter(h_ibpf,Np=10,block_size=1)))
-[1] "ibpf logLik for he10 model: -6589.70922701501"
+> h_bpfilter <- bpfilter(h_ibpf,Np=10,block_size=1)
 > 
+> paste("ibpf logLik for he10 model:",logLik(h_bpfilter))
+[1] "ibpf logLik for he10 model: -2814.71744861074"
+> 
+> # test whether specifying Np as a function gives the same result
+> set.seed(3)
+> h_ibpf2 <- ibpf(
++ h_model,
++   params=coef(h_model),
++   sharedParNames=sharedParNames,
++   unitParNames=unitParNames,
++   Nbpf=2,
++   spat_regression=0.1,
++   Np=function(k) 10,
++   rw.sd=h_rw.sd,
++   cooling.fraction.50=0.5,
++   block_list=block_list
++ )
+> 
+> h_bpfilter2 <- bpfilter(h_ibpf2,Np=10,block_size=1)
+> 
+> if (logLik(h_bpfilter2)!=logLik(h_bpfilter))
++   stop("in ibpf: Np specified as a function gives a different result from Np as a scalar")
+>   
 > coef(h_ibpf)
       alpha1        iota1      cohort1          mu1          R01          R02 
-1.000000e+00 0.000000e+00 0.000000e+00 2.000000e-02 3.194959e+01 3.194959e+01 
+1.000000e+00 0.000000e+00 0.000000e+00 2.000000e-02 2.998682e+01 2.998682e+01 
         psi1         psi2           g1           g2       sigma1       sigma2 
-1.489545e-01 1.489545e-01 4.104272e+02 4.104272e+02 4.821791e+01 4.821791e+01 
+1.478142e-01 1.478142e-01 3.890605e+02 3.890605e+02 5.146403e+01 5.146403e+01 
       gamma1       gamma2   amplitude1   amplitude2     sigmaSE1     sigmaSE2 
-4.722066e+01 4.722066e+01 4.736288e-01 4.736288e-01 1.461788e-01 1.461788e-01 
+5.263311e+01 5.263311e+01 5.011599e-01 5.011599e-01 1.417224e-01 1.417224e-01 
         rho1         rho2         S_01         S_02         E_01         E_02 
-5.423109e-01 5.009793e-01 3.257674e-02 3.188634e-02 4.835306e-05 4.617649e-05 
+4.847137e-01 5.354589e-01 3.025523e-02 3.154374e-02 4.923364e-05 5.325866e-05 
         I_01         I_02 
-3.749471e-05 4.049693e-05 
+4.123391e-05 4.097914e-05 
+> 
+> # test errors for ibpf on class 'missing' or character
+> try(ibpf())
+Error : in ‘ibpf’: ‘data’ is a required argument.
+> try(ibpf("h_model"))
+Error : ‘ibpf’ is undefined for ‘data’ of class ‘character’.
+> 
+> # test errors for ibpf on class spatPomp
+> try(ibpf(h_model))
+Error : in ‘ibpf’: Nbpf is required
+> try(ibpf(h_model,Nbpf=2))
+Error : in ‘ibpf’: rw.sd is required
+> try(ibpf(h_model,Nbpf=2,rw.sd=rw_sd(mu1=0.1)))
+Error : in ‘ibpf’: Np is required
+> try(ibpf(h_model,Nbpf=NA,Np=10))
+Error : in ‘ibpf’: rw.sd is required
+> try(ibpf(h_model,Nbpf=NA,Np=10,block_size=1))
+Error : in ‘ibpf’: rw.sd is required
+> try(ibpf(h_model,Nbpf=NA,Np=10,block_size=1,sharedParNames=NULL))
+Error : in ‘ibpf’: rw.sd is required
+> try(ibpf(h_model,Nbpf=2,rw.sd=rw_sd(mu1=0.1),Np=10,sharedParNames=sharedParNames,
++   unitParNames=unitParNames))
+Error : in ‘ibpf’: ‘block_list’ or ‘block_size’ must be specified to the call
+> try(ibpf(h_model,Nbpf=2,rw.sd=rw_sd(mu1=0.1),Np=10,sharedParNames=sharedParNames,
++   unitParNames=unitParNames,block_list=block_list,block_size=1))
+Error : in ‘ibpf’: Exactly one of ‘block_size’ and ‘block_list’ should be provided, but not both.
+> try(ibpf(h_model,Nbpf=2,rw.sd=rw_sd(mu1=0.1),Np=10,sharedParNames=sharedParNames,
++   unitParNames=unitParNames,block_list=block_list))
+Error : in ‘ibpf’: ‘spat_regression’ should be provided when there are shared parameters
+> try(ibpf(h_model,Nbpf=2,rw.sd=rw_sd(mu1=0.1),Np=5,sharedParNames=sharedParNames,
++   unitParNames=unitParNames,spat_regression=0.5,block_size=10))
+Error : in ‘ibpf’: ‘block_size’ cannot be greater than the number of spatial units
+> 
+> try(ibpf(h_model,Nbpf=NULL,block_list=block_list,Np=10,rw.sd=rw_sd(mu1=0.1)))
+Error : in ‘ibpf’: sharedParNames is required
+> try(ibpf(h_model,Nbpf=NULL,block_list=block_list,Np=10,rw.sd=rw_sd(mu1=0.1),
++   sharedParNames=NULL))
+Error : in ‘ibpf’: unitParNames is required
+> try(ibpf(h_model,Nbpf=NULL,block_list=block_list,Np=10,rw.sd=rw_sd(mu1=0.1),
++   sharedParNames=NULL,unitParNames=NULL))
+Error : in ‘ibpf’: cooling.fraction.50 is required
+> try(ibpf(h_model,Nbpf=NULL,block_list=block_list,Np=10,rw.sd=rw_sd(mu1=0.1),
++   sharedParNames=sharedParNames,unitParNames=unitParNames,cooling.fraction.50=0.5))
+Error : in ‘ibpf’: ‘spat_regression’ should be provided when there are shared parameters
+> try(ibpf(h_model,Nbpf=NULL,block_list=block_list,Np=10,rw.sd=rw_sd(mu1=0.00001),
++   sharedParNames=sharedParNames,unitParNames=unitParNames,cooling.fraction.50=0.5,
++   spat_regression=0.5))
+Error : in ‘ibpf’: ‘Nbpf’ must be a positive integer.
+> try(ibpf(h_model,Nbpf=1,block_list=block_list,Np=10,rw.sd=rw_sd(mu1=0.00001),
++   sharedParNames=sharedParNames,unitParNames=unitParNames,cooling.fraction.50=12,
++   spat_regression=0.5))
+Error : in ‘ibpf’: ‘cooling.fraction.50’ must be in (0,1].
+> try(ibpf(h_model,Nbpf=-1,block_list=block_list,Np=10,rw.sd=rw_sd(mu1=0.00001),
++   sharedParNames=sharedParNames,unitParNames=unitParNames,cooling.fraction.50=0.5,
++   spat_regression=0.5))
+Error : in ‘ibpf’: ‘Nbpf’ must be a positive integer.
+> 
+> # test errors on Np specification
+> try(ibpf(h_model,Nbpf=2,block_list=block_list,Np=NULL,rw.sd=rw_sd(mu1=0.00001),
++   sharedParNames=sharedParNames,unitParNames=unitParNames,cooling.fraction.50=0.5,
++   spat_regression=0.5))
+Error : in ‘ibpf’: ‘Np’ must be specified.
+> try(ibpf(h_model,Nbpf=2,block_list=block_list,Np=1:100,rw.sd=rw_sd(mu1=0.00001),
++   sharedParNames=sharedParNames,unitParNames=unitParNames,cooling.fraction.50=0.5,
++   spat_regression=0.5))
+Error : in ‘ibpf’: number of items to replace is not a multiple of replacement length
+In addition: Warning message:
+in ‘ibpf’: Np[k] ignored for k > ‘length(time(object))’. 
+> try(ibpf(h_model,Nbpf=2,block_list=block_list,Np="a character vector",
++   rw.sd=rw_sd(mu1=0.00001),sharedParNames=sharedParNames,
++   unitParNames=unitParNames,cooling.fraction.50=0.5,spat_regression=0.5))
+Error : in ‘ibpf’: ‘Np’ must be a number, a vector of numbers, or a function.
+> try(ibpf(h_model,Nbpf=2,block_list=block_list,Np=c(10,10),
++   rw.sd=rw_sd(mu1=0.00001),sharedParNames=sharedParNames,
++   unitParNames=unitParNames,cooling.fraction.50=0.5,spat_regression=0.5))
+Error : in ‘ibpf’: ‘Np’ must have length 1 or ‘length(time(object))’.
+> 
+> # test ibpf errors on class ibpfd_spatPomp
+> 
+> capture.output(ibpf(h_ibpf,sharedParNames=sharedParNames,
++   unitParNames=unitParNames,
++   .paramMatrix=h_ibpf@paramMatrix,verbose=TRUE)) -> out
+> try(ibpf(h_ibpf,block_size="JUNK",block_list="JUNK"))
+Error : in ‘ibpf’: Exactly one of ‘block_size’ and ‘block_list’ can be provided, but not both.
+> try(ibpf(h_ibpf,sharedParNames=sharedParNames,unitParNames=unitParNames,
++   block_size=1,Nbpf <- 0.1))
+Error : in ‘ibpf’: ‘Nbpf’ should be a positive integer
+> try(ibpf(h_ibpf,sharedParNames=sharedParNames,unitParNames=unitParNames,
++   block_size=3))
+Error : in ‘ibpf’: ‘block_size’ cannot be greater than the number of spatial units
+> try(ibpf(h_ibpf,sharedParNames=sharedParNames,unitParNames=unitParNames,
++   Np=function(n) "JUNK"))
+Error : in ‘ibpf’: if ‘Np’ is a function, it must return a single positive integer.
+> try(ibpf(h_ibpf,sharedParNames=sharedParNames,unitParNames=unitParNames,
++   Np=function(n) -1))
+Error : in ‘ibpf’: ‘Np’ must be a positive integer.
+> try(ibpf(h_ibpf,sharedParNames=sharedParNames,unitParNames=unitParNames,
++   .paramMatrix=h_ibpf@paramMatrix,Np=7))
+Error : in ‘ibpf’: number of items to replace is not a multiple of replacement length
+> try(ibpf(h_ibpf,sharedParNames=sharedParNames,unitParNames=unitParNames,
++   .paramMatrix=h_ibpf@paramMatrix[,1,drop=FALSE],Np=1))
+<object of class ‘ibpfd_spatPomp’>
+> 
+> # test ibpf on class bpfilterd_spatPomp
+> try(ibpf(h_bpfilter,block_list=block_list,block_size=1))
+Error : in ‘in ‘ibpf’: ’: Exactly one of ‘block_size’ and ‘block_list’ can be provided, but not both.
+> try(ibpf(h_bpfilter,block_size=23))
+Error : in ‘ibpf’: ‘block_size’ cannot be greater than the number of spatial units
+> try(ibpf(h_bpfilter))
+Error : in ‘argument "Nbpf" is missing, with no default’: ibpf
+> 
+> 
+> # test ibpf with missing basic model component
+> h_model2 <- spatPomp(h_model,rprocess=NULL)
+> try(h_ibpf2 <- ibpf(h_model2,
++   params=coef(h_model),
++   sharedParNames=sharedParNames,
++   unitParNames=unitParNames,
++   Nbpf=2,
++   spat_regression=0.1,
++   Np=10,
++   rw.sd=h_rw.sd,
++   cooling.fraction.50=0.5,
++   block_list=block_list
++ ))
+Error : in ‘ibpf’: ‘rprocess’, ‘dunit_measure’ are needed basic components.
 > 
 > ## test error message when munit_measure is undefined
+> ## this also tests setup of covariates for girf_moment
 > try(girf(h_model,kind="moment",
 +   Np=10,Ninter=2,Nguide=10,lookahead=1,tol=1e-5))
-Error in .local(object, ...) : 
-  girf with kind = 'moment' requires munit_measure
+Error : girf with kind = 'moment' requires munit_measure
 > 
-> # Create second ibpfd_spatPomp object with different chain length, to test error
-> h_ibpf2 <- ibpf(h_model,
+> ## test girf_bootstrap with covariates
+> h_girf <- girf(h_model,kind="bootstrap",
++   Np=5,Ninter=2,Nguide=5,lookahead=2,tol=1e-5)
+> 
+> # Create second ibpfd_spatPomp object with different chain length,
+> # to test error
+> h_ibpf3 <- ibpf(h_model,
 +                 params=coef(h_model),
 +                 sharedParNames=sharedParNames,
 +                 unitParNames=unitParNames,
@@ -153,8 +318,27 @@ Error in .local(object, ...) :
 [1] TRUE
 > 
 > # Throws error because they have different chain lengths
-> try(c(h_ibpf, h_ibpf2))
+> try(c(h_ibpf, h_ibpf3))
 Error in validObject(.Object) : 
   invalid class “ibpfList” object: error in ‘c’: to be combined, ‘ibpfd_spatPomp’ objects must have chains of equal length
+> 
+> # Test as.data.frame on a spatPomp with covariates
+> as.data.frame(h_model)
+       time       town cases     pop lag_birthrate
+1  1950.014     London    43 3389187      66086.82
+2  1950.014 Birmingham   100 1117804      22925.88
+3  1950.033     London    54 3388581      66176.17
+4  1950.033 Birmingham   100 1117670      22949.51
+5  1950.052     London    36 3387975      66265.51
+6  1950.052 Birmingham    90 1117536      22973.14
+7  1950.071     London    24 3387369      66354.86
+8  1950.071 Birmingham    70 1117402      22996.77
+9  1950.090     London    42 3386763      66444.21
+10 1950.090 Birmingham    65 1117268      23020.40
+> 
+> # Test covariate lookup on a spatPomp with covariates
+> .Call("lookup_in_table_spatPomp",h_model@covar,1950.02)
+          pop1           pop2 lag_birthrate1 lag_birthrate2 
+    3388987.60     1117760.00       66116.24       22933.66 
 > 
 > 

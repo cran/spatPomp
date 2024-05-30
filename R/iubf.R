@@ -69,6 +69,66 @@ setClass(
   )
 )
 
+setGeneric(
+  "iubf",
+  function (object, ...)
+    standardGeneric("iubf")
+)
+
+##' @name iubf-spatPomp
+##' @aliases iubf,spatPomp-method
+##' @rdname iubf
+##' @export
+setMethod(
+  "iubf",
+  signature=signature(object="spatPomp"),
+  definition = function (object, Nubf = 1, Nrep_per_param, Nparam, nbhd, prop,
+    rw.sd,
+    cooling.type = c("geometric","hyperbolic"),
+    cooling.fraction.50, tol = (1e-18)^17,
+    verbose = getOption("verbose"),...) {
+
+    ep <- paste0("in ",sQuote("iubf"),": ")
+    if(missing(Nubf))
+      pStop_(ep,sQuote("Nubf")," must be specified")
+    if (Nubf <= 0)
+      pStop_(ep,sQuote("Nubf")," must be a positive integer")
+    if(missing(Nrep_per_param))
+      pStop_(ep,"number of replicates, ",
+        sQuote("Nrep_per_param"),", must be specified")
+    if (missing(rw.sd))
+      pStop_(ep,sQuote("rw.sd")," must be specified")
+    if (missing(cooling.fraction.50))
+      pStop_(ep,sQuote("cooling.fraction.50")," must be specified")
+    if (missing(nbhd))
+      pStop_(ep,sQuote("nbhd")," must be specified")
+    if (missing(Nparam))
+      pStop_(ep,sQuote("Nparam")," must be specified")
+    if (Nparam<2.5)
+      pStop_(ep,sQuote("Nparam")," must be at least 3")
+    if (missing(prop))
+      pStop_(ep,sQuote("prop")," must be specified")
+    cooling.type <- match.arg(cooling.type)
+    cooling.fraction.50 <- as.numeric(cooling.fraction.50)
+    if (cooling.fraction.50 <= 0 || cooling.fraction.50 > 1)
+      pStop_(ep,sQuote("cooling.fraction.50")," must be in (0,1]")
+
+    iubf_internal(
+      object=object,
+      Nrep_per_param=Nrep_per_param,
+      Nparam=Nparam,
+      Nubf=Nubf,
+      nbhd=nbhd,
+      prop=prop,
+      rw.sd=rw.sd,
+      cooling.type=cooling.type,
+      cooling.fraction.50=cooling.fraction.50,
+      tol=tol,
+      verbose=verbose,
+      ...
+    )
+  }
+)
 
 iubf_ubf <- function (object,
   params,
@@ -81,7 +141,6 @@ iubf_ubf <- function (object,
   tol = (1e-18)^17,
   .indices = integer(0), verbose,
   .gnsi = TRUE) {
-  ep <- paste0("in ",sQuote("iubf_ubf"),": ")
   gnsi <- as.logical(.gnsi)
   verbose <- as.logical(verbose)
   abfiter <- as.integer(abfiter)
@@ -139,10 +198,8 @@ iubf_ubf <- function (object,
             log=TRUE,
             .gnsi=gnsi
           ),
-          error = function (e) {
-            stop(ep,"error in calculation of weights: ",
-              conditionMessage(e),call.=FALSE)
-          }
+          error = function (e) pStop_("error in calculation of weights: ",
+              conditionMessage(e))
         )[,,1]
         log_cond_densities[is.infinite(log_cond_densities)] <- log(tol)
         gnsi <- FALSE
@@ -159,14 +216,15 @@ iubf_ubf <- function (object,
             if (neighbor_n == nt)
               log_prod_cond_dens_nt  <- log_prod_cond_dens_nt + log_cond_densities[neighbor_u, ]
             else{
-                                        # means prev_meas_weights was non-null, i.e. dim(prev_meas_weights)[3]>=1
+              ## means prev_meas_weights was non-null, i.e. dim(prev_meas_weights)[3]>=1
               log_prod_cond_dens_not_nt <- log_prod_cond_dens_not_nt +
                 prev_meas_weights[neighbor_u,((i-1)*Nrep_per_param+1):(i*Nrep_per_param) ,num_old_times+1-(nt-neighbor_n)]
             }
           }
           log_loc_comb_pred_weights[unit,]  <- log_prod_cond_dens_not_nt + log_prod_cond_dens_nt
         }
-        log_wm_times_wp_avgs_by_param <- apply(log_loc_comb_pred_weights + log_cond_densities, c(1), FUN = logmeanexp)
+        log_wm_times_wp_avgs_by_param <- apply(log_loc_comb_pred_weights +
+	  log_cond_densities, c(1), FUN = logmeanexp)
         log_wp_avgs_by_param <- apply(log_loc_comb_pred_weights, c(1), FUN = logmeanexp)
         param_resamp_log_weights <- sum(log_wm_times_wp_avgs_by_param - log_wp_avgs_by_param)
         list(jobX[,,1],log_cond_densities,param_resamp_log_weights)
@@ -178,7 +236,8 @@ iubf_ubf <- function (object,
 ####### Quantile resampling
     def_resample <- which(param_resamp_log_weights > quantile(param_resamp_log_weights, 1-prop))
     length_also_resample <- Nparam - length(def_resample)
-    also_resample <- sample(def_resample, size = length_also_resample, replace = TRUE, prob = rep(1, length(def_resample)))
+    also_resample <- sample(def_resample, size = length_also_resample, replace = TRUE,
+      prob = rep(1, length(def_resample)))
     resample_ixs_raw <- c(def_resample, also_resample)
     resample_ixs <- (resample_ixs_raw - 1)*Nrep_per_param
     resample_ixs <- rep(resample_ixs, each = Nrep_per_param)
@@ -186,8 +245,8 @@ iubf_ubf <- function (object,
     params <- params[,resample_ixs_raw]
     rm(def_resample,also_resample,length_also_resample,resample_ixs_raw)
 
-                                        # for next observation time, how far back do we need
-                                        # to provide the conditional densities, f_{Y_{u,n}|X_{u,n}}?
+    ## for next observation time, how far back do we need
+    ## to provide the conditional densities, f_{Y_{u,n}|X_{u,n}}?
     max_lookback <- 0
     for(u in seq_len(nunits)){
       all_nbhd_times <- sapply(nbhd(object=object,unit=u,time=nt+1),'[[',2)
@@ -195,7 +254,8 @@ iubf_ubf <- function (object,
       smallest_nbhd_time <- min(all_nbhd_times)
       if(nt+1-smallest_nbhd_time > max_lookback) max_lookback <- nt+1-smallest_nbhd_time
     }
-    if(max_lookback == 1) prev_meas_weights <- array(log_cond_densities[,resample_ixs],dim = c(dim(log_cond_densities),1))
+    if(max_lookback == 1) prev_meas_weights <- array(log_cond_densities[,resample_ixs],
+      dim = c(dim(log_cond_densities),1))
     if(max_lookback > 1){
       prev_meas_weights <- abind::abind(prev_meas_weights[,,(dim(prev_meas_weights)[3]+2-max_lookback):dim(prev_meas_weights)[3],drop=F],
         log_cond_densities,
@@ -247,10 +307,12 @@ iubf_internal <- function (object, Nrep_per_param, Nparam, nbhd, Nubf, prop, rw.
   if (is.null(.paramMatrix)) {
     rep_param_init <- coef(object)
     start <- coef(object)
-  } else {
-    rep_param_init <- .paramMatrix
-    start <- apply(.paramMatrix,1L,mean)
   }
+  ## continuation using .paramMatrix not yet implemented
+  ## else {
+  ##   rep_param_init <- .paramMatrix
+  ##   start <- apply(.paramMatrix,1L,mean)
+  ## }
 
   rw.sd <- perturbn.kernel.sd(rw.sd,time=time(object),paramnames=names(start))
 
@@ -293,7 +355,7 @@ iubf_internal <- function (object, Nrep_per_param, Nparam, nbhd, Nubf, prop, rw.
       print(out_params_summary)
     }
   }
-                                        # parameter swarm to be outputted
+  ## parameter swarm to be outputted
   param_swarm <- partrans(object,
     rep_param_init,
     dir="fromEst", .gnsi=.gnsi)
@@ -315,54 +377,3 @@ iubf_internal <- function (object, Nrep_per_param, Nparam, nbhd, Nubf, prop, rw.
 
 }
 
-setGeneric(
-  "iubf",
-  function (object, ...)
-    standardGeneric("iubf")
-)
-
-##' @name iubf-spatPomp
-##' @aliases iubf,spatPomp-method
-##' @rdname iubf
-##' @export
-setMethod(
-  "iubf",
-  signature=signature(object="spatPomp"),
-  definition = function (object, Nubf = 1, Nrep_per_param, Nparam, nbhd, prop,
-    rw.sd,
-    cooling.type = c("geometric","hyperbolic"),
-    cooling.fraction.50, tol = (1e-18)^17,
-    verbose = getOption("verbose"),...) {
-
-    ep <- paste0("in ",sQuote("iubf"),": ")
-    if(missing(Nubf))
-      stop(ep,sQuote("Nubf")," must be specified",call.=FALSE)
-    if (Nubf <= 0)
-      stop(ep,sQuote("Nubf")," must be a positive integer",call.=FALSE)
-    if(missing(Nrep_per_param))
-      stop(ep,"number of replicates, ",
-        sQuote("Nrep_per_param"),", must be specified!",call.=FALSE)
-    if (missing(rw.sd))
-      stop(ep,sQuote("rw.sd")," must be specified!",call.=FALSE)
-    cooling.type <- match.arg(cooling.type)
-    cooling.fraction.50 <- as.numeric(cooling.fraction.50)
-    if (cooling.fraction.50 <= 0 || cooling.fraction.50 > 1)
-      stop(ep,sQuote("cooling.fraction.50"),
-        " must be in (0,1]",call.=FALSE)
-
-    iubf_internal(
-      object=object,
-      Nrep_per_param=Nrep_per_param,
-      Nparam=Nparam,
-      Nubf=Nubf,
-      nbhd=nbhd,
-      prop=prop,
-      rw.sd=rw.sd,
-      cooling.type=cooling.type,
-      cooling.fraction.50=cooling.fraction.50,
-      tol=tol,
-      verbose=verbose,
-      ...
-    )
-  }
-)

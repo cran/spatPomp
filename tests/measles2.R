@@ -1,6 +1,10 @@
 
 library(spatPomp)
 
+## test error messages
+try(measles2(U=1000,N=5))
+try(measles2(U=2,N=1000))
+
 i <- 1
 DEBUG=FALSE
 U <- switch(i,4,10,40)
@@ -27,7 +31,8 @@ par1[paste0('iota',1:U)] <- 10
 # all shared parameters
 m2 <- measles2(U=U,N=N,expandedParNames=NULL,
   contractedParNames=c("R0", "c", "A", "muIR",
-    "muEI", "sigmaSE", "rho", "psi", "g", "S_0", "E_0", "I_0")
+    "muEI", "sigmaSE", "rho", "psi", "g", "S_0", "E_0", "I_0"),
+  simulated=TRUE   ## to test this flag for measles2()
 )
 
 set.seed(1)

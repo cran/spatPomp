@@ -98,10 +98,10 @@ spatPomp <- function (data, units, times, covar, t0, ...,
   ep <- paste0("in ",sQuote("spatPomp"),": ")
 
   if (missing(data))
-    stop(ep,sQuote("data")," is a required argument",call.=FALSE)
+    pStop_(ep,sQuote("data")," is a required argument")
 
   if (!inherits(data,what=c("data.frame","spatPomp")))
-    pStop("spatPomp",sQuote("data")," must be a data frame or an object of ",
+    pStop_(ep, sQuote("data")," must be a data frame or an object of ",
       "class ",sQuote("spatPomp"),".")
 
   ## return as quickly as possible if no work is to be done
@@ -133,7 +133,7 @@ spatPomp <- function (data, units, times, covar, t0, ...,
       globals=globals,cdir=cdir,cfile=cfile,shlib.args=shlib.args,
       compile=compile, verbose=verbose
     ),
-    error = function (e) stop(conditionMessage(e))
+    error = function (e) pStop_(conditionMessage(e))
   )
 }
 
@@ -142,7 +142,7 @@ setMethod(
   "construct_spatPomp",
   signature=signature(data="ANY", times="ANY", units="ANY"),
   definition = function (data, times, t0, ...) {
-    stop(sQuote("times")," should be a single name identifying the column of data that represents",
+    pStop_("in spatPomp : ", sQuote("times")," should be a single name identifying the column of data that represents",
       " the observation times. ", sQuote("units"), " should be likewise for column that represents",
       " the observation units.")
   }
@@ -158,19 +158,21 @@ setMethod(
     paramnames, shared_covarnames, PACKAGE, globals,
     cdir, cfile, shlib.args, compile, verbose) {
 
-    if (anyDuplicated(names(data)))
-      stop("names of data variables must be unique.")
+   ep <- paste0("in ",sQuote("spatPomp"),": ")
 
-    if (missing(t0)) reqd_arg(NULL,"t0")
+   if (anyDuplicated(names(data)))
+      pStop_(ep, "names of data variables must be unique.")
+
+    if (missing(t0)) pStop_(ep, sQuote("t0"), " is a required argument")
 
     tpos <- match(times,names(data),nomatch=0L)
     upos <- match(units,names(data),nomatch=0L)
 
     if (length(times) != 1 || tpos == 0L)
-      stop(sQuote("times")," does not identify a single column of ",
+      pStop_(ep, sQuote("times")," does not identify a single column of ",
         sQuote("data")," by name.")
     if (length(units) != 1 || upos == 0L)
-      stop(sQuote("units")," does not identify a single column of ",
+      pStop_(ep, sQuote("units")," does not identify a single column of ",
         sQuote("data")," by name.")
 
     timename <- times
@@ -215,10 +217,10 @@ setMethod(
     ## Make data into a dataframe that pomp would expect
     tmp <- seq_along(unit_names)
     names(tmp) <- unit_names
-    pomp_data <- data %>% dplyr::mutate(ui = tmp[match(data[[unitname]], names(tmp))])
-    pomp_data <- pomp_data %>% tidyr::gather(unit_obsnames, key = 'obsname', value = 'val') %>% dplyr::arrange_at(c(timename,'obsname','ui'))
-    pomp_data <- pomp_data %>% dplyr::mutate(obsname = paste0(.data$obsname,.data$ui)) %>% dplyr::select(-upos) %>% dplyr::select(-.data$ui)
-    pomp_data <- pomp_data %>% tidyr::spread(key = .data$obsname, value = .data$val)
+    pomp_data <- data |> dplyr::mutate(ui = tmp[match(data[[unitname]], names(tmp))])
+    pomp_data <- pomp_data |> tidyr::gather(unit_obsnames, key = 'obsname', value = 'val') |> dplyr::arrange_at(c(timename,'obsname','ui'))
+    pomp_data <- pomp_data |> dplyr::mutate(obsname = paste0(.data$obsname,.data$ui)) |> dplyr::select(-upos) |> dplyr::select(-.data$ui)
+    pomp_data <- pomp_data |> tidyr::spread(key = .data$obsname, value = .data$val)
     dat_col_order <- vector(length = U*length(unit_obsnames))
     for(oti in seq_along(unit_obsnames)){
       for(i in seq_len(U)){
@@ -229,30 +231,34 @@ setMethod(
     if(!missing(covar)){
       if(timename %in% names(covar)) tcovar <- timename
       else{
-        stop(sQuote("covariate"), ' data.frame should have a time column with the same name as the ',
+        pStop_(ep, sQuote("covariate"),
+	  ' data.frame should have a time column with the same name as the ',
           'time column of the observation data.frame')
       }
     }
+
     ## make covariates into a dataframe that pomp would expect
-    unit_covarnames <- NULL ## could get overwritten soon
-    if(missing(shared_covarnames)) shared_covarnames <- NULL
     if(!missing(covar)){
       upos_cov <- match(unitname, names(covar))
       tpos_cov <- match(tcovar, names(covar))
-      cov_col_order <- c()
-      if(missing(shared_covarnames)) unit_covarnames <- names(covar)[-c(upos_cov, tpos_cov)]
-      else {
+      cov_col_order <- c()      
+      if(missing(shared_covarnames)) {
+        if(is.na(upos_cov)) pStop_(ep, "for unit-specific covariates, there should be a column with the unit name matching the data")
+        shared_covarnames <- NULL
+        unit_covarnames <- names(covar)[-c(upos_cov, tpos_cov)]	
+      } else {
+        if(!is.na(upos_cov)) pStop_(ep, sQuote("shared_covarnames"), " currently supported only when there are no unit-specific covariates")	
         pos_shared_cov <- match(shared_covarnames, names(covar))
-        unit_covarnames <- names(covar)[-c(upos_cov, tpos_cov, pos_shared_cov)]
-        cov_col_order <- c(cov_col_order, shared_covarnames)
+        unit_covarnames <- NULL
+        cov_col_order <- c(cov_col_order, names(covar)[pos_shared_cov])
       }
       if(length(unit_covarnames) > 0){
         tmp <- seq_along(unit_names)
         names(tmp) <- unit_names
-        pomp_covar <- covar %>% dplyr::mutate(ui = match(covar[[unitname]], names(tmp)))
-        pomp_covar <- pomp_covar %>% tidyr::gather(unit_covarnames, key = 'covname', value = 'val')
-        pomp_covar <- pomp_covar %>% dplyr::mutate(covname = paste0(.data$covname,.data$ui)) %>% dplyr::select(-upos_cov) %>% dplyr::select(-.data$ui)
-        pomp_covar <- pomp_covar %>% tidyr::spread(key = .data$covname, value = .data$val)
+        pomp_covar <- covar |> dplyr::mutate(ui = match(covar[[unitname]], names(tmp)))
+        pomp_covar <- pomp_covar |> tidyr::gather(unit_covarnames, key = 'covname', value = 'val')
+        pomp_covar <- pomp_covar |> dplyr::mutate(covname = paste0(.data$covname,.data$ui)) |> dplyr::select(-upos_cov) |> dplyr::select(-.data$ui)
+        pomp_covar <- pomp_covar |> tidyr::spread(key = .data$covname, value = .data$val)
         for(cn in unit_covarnames){
           for(i in seq_len(U)){
             cov_col_order = c(cov_col_order, paste0(cn, i))
@@ -264,17 +270,19 @@ setMethod(
         pomp_covar <- pomp::covariate_table(covar, times=tcovar)
       }
     } else {
+      # return an empty covariate table
+      unit_covarnames <- NULL
+      shared_covarnames <- NULL
       pomp_covar <- pomp::covariate_table()
     }
 
     ## Get all names before call to pomp().
-    if(!missing(unit_statenames)) pomp_statenames <- paste0(rep(unit_statenames,each=U),seq_len(U))
+    if(length(unit_statenames)>0) pomp_statenames <- paste0(rep(unit_statenames,each=U),seq_len(U))
     else pomp_statenames <- NULL
     if (!missing(covar)){
-      if(missing(shared_covarnames)) pomp_covarnames <- paste0(rep(unit_covarnames,each=U),seq_len(U))
+      if(is.null(shared_covarnames)) pomp_covarnames <- paste0(rep(unit_covarnames,each=U),seq_len(U))
       else {
         if(length(unit_covarnames) == 0) pomp_covarnames <- shared_covarnames
-        else pomp_covarnames <- c(shared_covarnames, paste0(rep(unit_covarnames,each=U),seq_len(U)))
       }
     }
     else pomp_covarnames <- NULL
@@ -354,8 +362,11 @@ setMethod(
     partrans, params, paramnames, unit_statenames, covar, shared_covarnames, unit_accumvars,
     dunit_measure, eunit_measure, vunit_measure, munit_measure, runit_measure,
     globals, verbose, PACKAGE, cfile, cdir, shlib.args) {
+
+    ep <- paste0("in ",sQuote("spatPomp"),": ")
     times <- data@times
-    unit_names <- data@unit_names; U <- length(unit_names)
+    unit_names <- data@unit_names
+    U <- length(unit_names)
     if(missing(unit_statenames)) unit_statenames <- data@unit_statenames
     if(length(unit_statenames) == 0) pomp_statenames <- NULL
     else pomp_statenames <- paste0(rep(unit_statenames,each=U),seq_len(U))
@@ -364,31 +375,40 @@ setMethod(
     else timename <- as.character(timename)
     if(missing(unitname)) unitname <- data@unitname
     else unitname <- as.character(unitname)
-
     unit_covarnames <- data@unit_covarnames
     if(missing(shared_covarnames))  shared_covarnames <- data@shared_covarnames
+
+    ## make covariates into a dataframe that pomp would expect
+    ## this is identical to covariate construction in the data.frame spatPomp method
     if(!missing(covar)){
       if(timename %in% names(covar)) tcovar <- timename
       else{
-        stop(sQuote("covariate"), ' data.frame should have a time column with the same name as the ',
-          'observation data')
+        pStop_(ep, sQuote("covariate"),
+	  ' data.frame should have a time column with the same name as the ',
+          'time column of the observation data.frame')
       }
+    }
+    if(!missing(covar)){
       upos_cov <- match(unitname, names(covar))
       tpos_cov <- match(tcovar, names(covar))
-      cov_col_order <- c()
-      if(missing(shared_covarnames)) unit_covarnames <- names(covar)[-c(upos_cov, tpos_cov)]
-      else {
+      cov_col_order <- c()      
+      if(length(shared_covarnames)==0) {
+        if(is.na(upos_cov)) pStop_(ep, "for unit-specific covariates, there should be a column with the unit name matching the data")
+        shared_covarnames <- character(0)
+        unit_covarnames <- names(covar)[-c(upos_cov, tpos_cov)]	
+      } else {
+        if(!is.na(upos_cov)) pStop_(ep, sQuote("shared_covarnames"), " currently supported only when there are no unit-specific covariates")	
         pos_shared_cov <- match(shared_covarnames, names(covar))
-        unit_covarnames <- names(covar)[-c(upos_cov, tpos_cov, pos_shared_cov)]
-        cov_col_order <- c(cov_col_order, shared_covarnames)
+        unit_covarnames <- character(0)
+        cov_col_order <- c(cov_col_order, names(covar)[pos_shared_cov])
       }
       if(length(unit_covarnames) > 0){
         tmp <- seq_along(unit_names)
         names(tmp) <- unit_names
-        pomp_covar <- covar %>% dplyr::mutate(ui = match(covar[[unitname]], names(tmp)))
-        pomp_covar <- pomp_covar %>% tidyr::gather(unit_covarnames, key = 'covname', value = 'val')
-        pomp_covar <- pomp_covar %>% dplyr::mutate(covname = paste0(.data$covname,.data$ui)) %>% dplyr::select(-upos_cov) %>% dplyr::select(-.data$ui)
-        pomp_covar <- pomp_covar %>% tidyr::spread(key = .data$covname, value = .data$val)
+        pomp_covar <- covar |> dplyr::mutate(ui = match(covar[[unitname]], names(tmp)))
+        pomp_covar <- pomp_covar |> tidyr::gather(unit_covarnames, key = 'covname', value = 'val')
+        pomp_covar <- pomp_covar |> dplyr::mutate(covname = paste0(.data$covname,.data$ui)) |> dplyr::select(-upos_cov) |> dplyr::select(-.data$ui)
+        pomp_covar <- pomp_covar |> tidyr::spread(key = .data$covname, value = .data$val)
         for(cn in unit_covarnames){
           for(i in seq_len(U)){
             cov_col_order = c(cov_col_order, paste0(cn, i))
@@ -396,13 +416,22 @@ setMethod(
         }
         pomp_covar <- pomp_covar[, c(timename, cov_col_order)]
         pomp_covar <- pomp::covariate_table(pomp_covar, times=tcovar)
+      } else{
+        pomp_covar <- pomp::covariate_table(covar, times=tcovar)
       }
-    } else pomp_covar <- data@covar
+    } else {
+        pomp_covar <- data@covar
+    }
 
+    ## prepare names for the call to pomp()
+    if(length(unit_statenames)>0) pomp_statenames <- paste0(rep(unit_statenames,each=U),seq_len(U))
+    else pomp_statenames <- NULL
+    pomp_covarnames <- get_covariate_names(pomp_covar)
+     
     if (missing(t0)) t0 <- data@t0
     if (missing(rinit)) rinit <- data@rinit
     if (missing(rprocess)) rprocess <- data@rprocess
-    else if (is.null(rprocess)) rprocess <- new("rprocPlugin")
+      else if (is.null(rprocess)) rprocess <- new("rprocPlugin")
     if (missing(dprocess)) dprocess <- data@dprocess
     if (missing(rmeasure)) rmeasure <- data@rmeasure
     if (missing(dmeasure)) dmeasure <- data@dmeasure
@@ -412,7 +441,7 @@ setMethod(
     if (missing(eunit_measure)) eunit_measure <- data@eunit_measure
     if (missing(runit_measure)) runit_measure <- data@runit_measure
     if (missing(skeleton)) skeleton <- data@skeleton
-    else if (is.null(skeleton)) skeleton <- new("skelPlugin")
+      else if (is.null(skeleton)) skeleton <- new("skelPlugin")
     if (missing(rprior)) rprior <- data@rprior
     if (missing(dprior)) dprior <- data@dprior
     if (missing(partrans)) partrans <- data@partrans
@@ -425,14 +454,13 @@ setMethod(
     }
 
     ## Get all names before call to hitch()
-    if (!missing(covar)) pomp_covarnames <- paste0(rep(unit_covarnames,each=U),seq_len(U))
-    else  pomp_covarnames <- get_covariate_names(data@covar)
-    if (!missing(unit_accumvars)) pomp_accumvars <- paste0(rep(unit_accumvars,each=U),seq_len(U))
+     if (!missing(unit_accumvars)) pomp_accumvars <- paste0(rep(unit_accumvars,each=U),seq_len(U))
     else {
       pomp_accumvars <- data@accumvars
       unit_accumvars <- data@unit_accumvars
     }
-    mparamnames <- paste("M_", paramnames, sep = "")
+    if (length(paramnames)>0) mparamnames <- paste("M_", paramnames, sep = "")
+    else mparamnames <- NULL
 
     ## We will always have a global giving us the number of spatial units
     if(missing(globals)) globals <- Csnippet(paste0("const int U = ",length(unit_names),";\n"))

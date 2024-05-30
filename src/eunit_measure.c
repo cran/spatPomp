@@ -1,7 +1,7 @@
 #include <R.h>
 #include <Rmath.h>
 #include <Rdefines.h>
-#include <Rinternals.h>
+
 #include <R_ext/Rdynload.h>
 #include "spatPomp_defines.h"
 #include "pomp.h"
@@ -77,11 +77,6 @@ SEXP do_eunit_measure (SEXP object, SEXP X, SEXP Np, SEXP times, SEXP params, SE
   // create array to store results
   PROTECT(F = ret_array(nunits, nreps, ntimes)); nprotect++;
   switch (mode) {
-
-  case Rfun: {
-  }
-
-    break;
 
   case native: case regNative: {
     int *oidx, *sidx, *pidx, *cidx;

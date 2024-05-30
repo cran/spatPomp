@@ -1,7 +1,7 @@
 
-R version 4.2.3 (2023-03-15) -- "Shortstop Beagle"
-Copyright (C) 2023 The R Foundation for Statistical Computing
-Platform: x86_64-apple-darwin17.0 (64-bit)
+R version 4.4.0 (2024-04-24) -- "Puppy Cup"
+Copyright (C) 2024 The R Foundation for Statistical Computing
+Platform: aarch64-apple-darwin20
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
@@ -22,8 +22,14 @@ Type 'q()' to quit R.
 Loading required package: pomp
 > 
 > p_expanded <- c(a1=0,b1=0,b2=1,b3=2,c1=4,c2=4,c3=4)
+> p_expanded_unequal <- c(a1=0,b1=0,b2=1,b3=2,c1=4,c2=4,c3=5)
 > 
 > p_contracted <- contract_params(p_expanded,expandedParNames="c",U=3)
+> 
+> try(contract_params(p_expanded_unequal,
++   expandedParNames="c",U=3,average=FALSE))
+Error in paste0(before, x, after) : 
+  cannot coerce type 'closure' to vector of type 'character'
 >   
 > p_contracted
 a1 b1 b2 b3 c1 

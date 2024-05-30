@@ -1,7 +1,7 @@
 
-R version 4.2.3 (2023-03-15) -- "Shortstop Beagle"
-Copyright (C) 2023 The R Foundation for Statistical Computing
-Platform: x86_64-apple-darwin17.0 (64-bit)
+R version 4.4.0 (2024-04-24) -- "Puppy Cup"
+Copyright (C) 2024 The R Foundation for Statistical Computing
+Platform: aarch64-apple-darwin20
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
@@ -20,6 +20,12 @@ Type 'q()' to quit R.
 > 
 > library(spatPomp)
 Loading required package: pomp
+> 
+> ## test error messages
+> try(measles2(U=1000,N=5))
+Error in measles2(U = 1000, N = 5) : U <= 40
+> try(measles2(U=2,N=1000))
+Error in measles2(U = 2, N = 1000) : N <= 391
 > 
 > i <- 1
 > DEBUG=FALSE
@@ -53,7 +59,8 @@ name     [,1] [,2]
 > # all shared parameters
 > m2 <- measles2(U=U,N=N,expandedParNames=NULL,
 +   contractedParNames=c("R0", "c", "A", "muIR",
-+     "muEI", "sigmaSE", "rho", "psi", "g", "S_0", "E_0", "I_0")
++     "muEI", "sigmaSE", "rho", "psi", "g", "S_0", "E_0", "I_0"),
++   simulated=TRUE   ## to test this flag for measles2()
 + )
 > 
 > set.seed(1)

@@ -3,7 +3,7 @@
 #include <R.h>
 #include <Rmath.h>
 #include <Rdefines.h>
-#include <Rinternals.h>
+
 #include <R_ext/Rdynload.h>
 
 #include "spatPomp_defines.h"
@@ -79,11 +79,6 @@ SEXP do_dunit_measure (SEXP object, SEXP y, SEXP x, SEXP times, SEXP units, SEXP
   PROTECT(F = ret_array(nreps,ntimes)); nprotect++;
 
   switch (mode) {
-
-  case Rfun: {
-  }
-
-    break;
 
   case native: case regNative: {
     int *oidx, *sidx, *pidx, *cidx;
